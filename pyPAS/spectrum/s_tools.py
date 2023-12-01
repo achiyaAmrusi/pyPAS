@@ -32,7 +32,7 @@ def nominal_and_std_spectrum(spectrum):
     return spectrum_nom, spectrum_std
 
 
-def subtract_background_from_spectra_peak(spectrum, detector_energy_resolution, energy_in_the_peak):
+def subtract_background_from_spectra_peak(spectrum, energy_in_the_peak, detector_energy_resolution):
     """ create a subtracted background spectrum from the xarray spectrum
     the method of the subtraction is as follows -
      - find the peak domain and the mean count in the edges
