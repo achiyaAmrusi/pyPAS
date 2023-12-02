@@ -14,7 +14,7 @@ def cdb_create_coincidence_spectra(format_data_path, cdb_datatype_directory_path
                                    energy_calib_poly_det_2,
                                    energy_resolution_det_1, energy_resolution_det_2,
                                    grid_dim_size=10, two_dim_mesh_parm=0.1, time_interval_limit=10):
-    """create 2d spectra of cdb, resolution spectrum and db file in CDB database for each measurement in spectrum file.
+    """create 2d spectra of cdb, resolution pyspectrum and db file in CDB database for each measurement in pyspectrum file.
     Also, update id file to include 2d_spectra and 2D CDB
     input :
     - format_data_path : directory of cdb data in program format
@@ -100,7 +100,7 @@ def df_time_channel_to_time_energy(df, energy_calibration_poly):
 
 
 def cdb_pairs_df_to_hist(cdb_cases, grid_dim_size, mesh_interval):
-    """ return the cdb spectrum from all the cdb pairs in dataframe format
+    """ return the cdb pyspectrum from all the cdb pairs in dataframe format
         input:
         - cdb_cases : dataframe in the format of index, energy_1, energy_2
         where in each index the energy_1 and energy_2 instance are a measurement pair
@@ -176,7 +176,7 @@ def energy_coincidence_check(coincidence_pair, det_1_fwhm, det_2_fwhm):
 
 
 def save_cdb_spectrum(path, histogram_2d, first_detector_bins, second_detector_bins):
-    """saves the 3 elements from cdb spectrum -
+    """saves the 3 elements from cdb pyspectrum -
     histogram, doppler broadening profile, resolution profile"""
     histogram_2d.tofile(path + '/histogram', sep='\t', format='%s')
     first_detector_bins.tofile(path + '/first_detector_energy_bins', sep='\t', format='%s')
@@ -213,7 +213,7 @@ def cdb_horizontal_cut(cdb_2d_spectrum_hist, det_energy_hist_edges):
 def cdb_vertical_cut(cdb_2d_spectrum_hist, det_energy_hist_edges):
     """calculate the vertical cut of the 2d cdb histogram
     return:
-    resolution spectrum
+    resolution pyspectrum
     """
     res = cdb_2d_spectrum_hist[:, 0] * 0
     for i in range(len(cdb_2d_spectrum_hist[0, :])):

@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from spectrum import load_spectrum
+from pyspectrum import load_spectrum
 from data_types import id_file
 from Panalysis import database_tools
 
@@ -9,7 +9,7 @@ ELECTRON_REST_MASS = 511
 
 def cdb_create_s_w_file(cdb_directory_path, s_w_file_path, energy_domain_peak, energy_domain_s,
                         energy_domain_w_l, energy_domain_w_r):
-    """create 2d spectra of cdb, resolution spectrum and db file in CDB database for each measurement in spectrum file.
+    """create 2d spectra of cdb, resolution pyspectrum and db file in CDB database for each measurement in pyspectrum file.
     Also, update id file to include 2d_spectra and 2D CDB
     input :
     - data_directory : directory of cdb data
@@ -41,10 +41,10 @@ def cdb_create_s_w_file(cdb_directory_path, s_w_file_path, energy_domain_peak, e
     for index, cdb_file_name in enumerate(cdb_files_path):
         # file name and energy
         file_energy = int(energies_list[index])
-        # load the spectrum from the file
+        # load the pyspectrum from the file
         spectrum = load_spectrum.load_spectrum_file_to_xarray_spectrum(cdb_file_name)
 
-        # calculate the s and w parameters from the spectrum
+        # calculate the s and w parameters from the pyspectrum
         (s_parm, w_parm) = database_tools.spectrum_s_w_calculation(spectrum, energy_domain_peak, energy_domain_s,
                                                                    energy_domain_w_l, energy_domain_w_r)
         s_w_data = pd.concat([s_w_data, pd.DataFrame({'energy': [file_energy], 's': [s_parm], 'w': [w_parm]})],

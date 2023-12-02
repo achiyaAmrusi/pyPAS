@@ -14,7 +14,7 @@
 # basic_results :
 # dir_name DB/CDB
 # for doppler broadening
-# spectrum_files - positrons energy and spectrum
+# spectrum_files - positrons energy and pyspectrum
 #
 import os
 import numpy as np
@@ -31,7 +31,7 @@ def db_make_data_dir_format(data_dir_path, db_data_in_format_path, sample_name, 
     """make data directory which is created according to the format.
         The format contains the following -
         id file: data type (DB,CDB,PALS) , sample name, if there is energy calibration
-        spectrum_files: positron energy with the spectrum measured in the detector
+        spectrum_files: positron energy with the pyspectrum measured in the detector
         s_w : s and w parameters
         input :
         data_dir_path - the data directory in the default format of huji results
@@ -65,14 +65,14 @@ def db_make_data_dir_format(data_dir_path, db_data_in_format_path, sample_name, 
 
 def db_filter_data_file_to_spectrum(input_file, num_lines_to_remove=5):
     """filter data from pile up and non-relevant lines in the beginning
-        returns simple spectrum of a detector
+        returns simple pyspectrum of a detector
     """
     # 3 data bins for each row
-    # The following commands takes the data from the file and form it into spectrum.
+    # The following commands takes the data from the file and form it into pyspectrum.
     # 1. Filter the (time, counts ,pile up) DataFrame to keep only rows where the third column is 0
-    # 2. (time, counts ,pile up) -> spectrum with only the channels that had any count
+    # 2. (time, counts ,pile up) -> pyspectrum with only the channels that had any count
     # 3. fix the error of large count in the last channel
-    # 4. change the spectrum to have all channels
+    # 4. change the pyspectrum to have all channels
     # step 1 happens in function filter_data_file and the rest in counts_in_time_into_spectrum
     filtered_data = huji_to_format_tools.data_file_to_filtered_dataframe(input_file, num_lines_to_remove=num_lines_to_remove)
     # 2
@@ -87,7 +87,7 @@ def db_save_file_in_format(data_dir_path, spectra_dir, sample_name, file_name):
         """
     # the format of the files name is Xev_channel00i where X is the energy in ev and 'i' is 0 or 1.
     ev_index = file_name.find('eV')
-    # Extract the substring before 'ev' if it's found and writing the spectrum
+    # Extract the substring before 'ev' if it's found and writing the pyspectrum
     if ev_index != -1:
         substring_before_ev = file_name[:ev_index]
         db_data = db_filter_data_file_to_spectrum(data_dir_path + '/' + file_name)

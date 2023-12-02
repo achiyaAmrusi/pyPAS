@@ -1,6 +1,6 @@
 def domain_of_peak(spectrum, detector_energy_resolution, energy_in_the_peak):
     """ define the total area of the peak
-        The function takes spectrum slice in size of the resolution and check from which energy the counts are constant
+        The function takes pyspectrum slice in size of the resolution and check from which energy the counts are constant
         however because the counts are not constant,
         it checks when the counts N_sigma from the mean is larger than 1
         The auther notes that it is noticeable that the large energy side of the peak is much less noisy than lower side

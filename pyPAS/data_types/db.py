@@ -14,13 +14,13 @@
 # basic_results :
 # dir_name DB/CDB
 # for doppler broadening
-# spectrum_files - positrons energy and spectrum
+# spectrum_files - positrons energy and pyspectrum
 #
 import os
 import pandas as pd
 from uncertainties import unumpy
 from data_types import id_file
-from spectrum import s_tools, load_spectrum
+from pyspectrum import s_tools, load_spectrum
 
 ELECTRON_REST_MASS = 511
 
@@ -30,7 +30,7 @@ def db_make_data_dir(format_data_path, db_directory_path, name, energy_calibrati
     """make data directory which is created according to the format.
         The format contains the following -
         id file: data type (DB_f,CDB_f,PALS_f) , sample name, if there is energy calibration
-        spectrum_files: positron energy with the spectrum measured in the detector
+        spectrum_files: positron energy with the pyspectrum measured in the detector
         input :
         data_dir_path - the data directory in the default format of huji results
         with results of 1 detector only!

@@ -27,14 +27,14 @@ def data_file_to_filtered_dataframe(input_file, num_lines_to_remove=5):
 
 
 def counts_in_time_into_spectrum(counts_in_time, detector_num_of_channels=2 ** 14):
-    """takes a data frame with time of count, count and pileup and turn into detector spectrum"""
-    # construct spectrum
+    """takes a data frame with time of count, count and pileup and turn into detector pyspectrum"""
+    # construct pyspectrum
     spectrum_counts = counts_in_time['channel'].value_counts()
     partial_spectrum = pd.DataFrame({'channel': spectrum_counts.index, 'counts': spectrum_counts.values})
     partial_spectrum = partial_spectrum.set_index('channel')
     # take the last bin to be 0 (bug)
     partial_spectrum.loc[detector_num_of_channels - 1] = 0
-    # fills the spectrum with all the channels that didn't got counts
+    # fills the pyspectrum with all the channels that didn't got counts
     full_spectrum = pd.DataFrame({'counts': np.zeros(detector_num_of_channels - 1)}, index=list(range(1, 2 ** 14)))
     full_spectrum.index.name = 'channel'
     full_spectrum.update(partial_spectrum)

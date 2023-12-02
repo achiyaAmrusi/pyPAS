@@ -14,7 +14,7 @@
 # basic_results :
 # dir_name DB/CDB
 # for doppler broadening
-# spectrum_files - positrons energy and spectrum
+# spectrum_files - positrons energy and pyspectrum
 # cdb data files are large
 
 import os
@@ -31,7 +31,7 @@ def cdb_make_data_dir_format(cdb_data_path, cdb_data_in_format_path, sample_name
     """make data directory which is created according to the format.
         The format contains the following -
         id file: data type (DB,CDB,PALS) , sample name, if there is energy calibration
-        spectrum_files: cdb 2d spectrum files
+        spectrum_files: cdb 2d pyspectrum files
         huji data files are using the template name is "****ev_ch000* where the last figure is 1 or 0
         the cdb function check if the files are common for two
 
