@@ -19,8 +19,8 @@
 import os
 import pandas as pd
 from uncertainties import unumpy
-from data_types import id_file
-from pyspectrum import s_tools, load_spectrum
+from pas_objects import id_file
+from pyspectrum import spectrum_tools, load_spectrum
 
 ELECTRON_REST_MASS = 511
 
@@ -57,8 +57,8 @@ def db_make_data_dir(format_data_path, db_directory_path, name, energy_calibrati
 
         spectrum = load_spectrum.load_spectrum_file_to_xarray_spectrum(spectra_data_directory + '/' + file_name,
                                                                        energy_calibration_poly)
-        spectrum_no_bg = s_tools.subtract_background_from_spectra_peak(spectrum,
-                                                                       energy_resolution, ELECTRON_REST_MASS)
+        spectrum_no_bg = spectrum_tools.subtract_background_from_spectra_peak(spectrum,
+                                                                              energy_resolution, ELECTRON_REST_MASS)
         db_save_spectrum_file(spectra_dir, file_name[file_name.find('_') + 1:], spectrum_no_bg)
         print(f'finished energy {energy}')
 

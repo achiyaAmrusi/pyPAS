@@ -2,16 +2,28 @@ import xarray as xr
 import numpy as np
 from uncertainties import ufloat
 import lmfit
-from pyspectrum import fit_functions, s_tools
+from pyspectrum import fit_functions, spectrum_tools
 
 
 class Spectrum:
 
     # Constructor method
     def __init__(self, counts, channels, energy_calibration_poly):
+        """ Constructor of Spectrum
+        input:
+         counts - 1d np.ndarray of spectrum counts
+         channels - 1d np.ndarray of spectrum channels
+         energy_calibration_poly - np.poly1d  which is the calibration
+         """
         # Instance variables
+        if not (isinstance(counts, np.ndarray) and counts.ndim == 1):
+            raise TypeError("Variable counts must be of type 1 dimension np.array.")
         self.counts = counts
+        if not (isinstance(channels, np.ndarray) and channels.ndim == 1):
+            raise TypeError("Variable channels must be of type 1 dimension np.array.")
         self.channels = channels
+        if not isinstance(energy_calibration_poly, np.poly1d):
+            raise TypeError("Variable energy_calibration_poly must be of type numpy.poly1d.")
         self.energy_calibration = energy_calibration_poly
 
     # Instance method
@@ -23,7 +35,7 @@ class Spectrum:
                                     dims=['energy'])
         else:
             counts_with_error = [ufloat(count, count ** 0.5) for count in self.counts]
-            spectrum = xr.DataArray(self.counts, coords={'energy': self.energy_calibration(self.channels)},
+            spectrum = xr.DataArray(counts_with_error, coords={'energy': self.energy_calibration(self.channels)},
                                     dims=['energy'])
         return spectrum
 
@@ -35,10 +47,11 @@ class Spectrum:
 
     def domain_of_peak(self, energy_in_the_peak, detector_energy_resolution=1):
         """ define the total area of the peak
-            The function takes pyspectrum slice in size of the resolution and check from which energy the counts are constant
+            The function takes spectrum slice in size of the resolution and check from which energy the counts are constant
             however because the counts are not constant,
             it checks when the counts N_sigma from the mean is larger than 1
-            The auther notes that it is noticeable that the large energy side of the peak is much less noisy than lower side
+            The auther notes that it is noticeable that the large energy side of the peak is much less noisy
+            than lower energy side
             warning : for generated data from gaussian the domain is all the space and thus the function keep
              searching the peak domain to the end of the spectrum! this is time intensive
             """
@@ -84,18 +97,16 @@ class Spectrum:
         spectrum = self.xr_spectrum()
         left_energy_peak_domain, right_energy_peak_domain = self.domain_of_peak(energy_in_the_peak,
                                                                                 resolution_estimation)
-        estimated_peak_center = s_tools.peak_center_rough_estimation(spectrum, energy_in_the_peak,
-                                                                     resolution_estimation,
-                                                                     left_energy_peak_domain, right_energy_peak_domain)
-        peak_counts_base_line = (spectrum.sel(energy=slice(right_energy_peak_domain,
-                                                           right_energy_peak_domain +
-                                                           3 * resolution_estimation))).mean()
+        estimated_peak_center = spectrum_tools.peak_center_rough_estimation(spectrum, energy_in_the_peak,
+                                                                            resolution_estimation,
+                                                                            left_energy_peak_domain,
+                                                                            right_energy_peak_domain)
         if background_subtraction:
-            spectrum = s_tools.subtract_background_from_spectra_peak(spectrum, estimated_peak_center,
-                                                                     resolution_estimation,
-                                                                     left_energy_peak_domain, right_energy_peak_domain)
-        peak_spectrum = (spectrum.sel(energy=slice(left_energy_peak_domain, right_energy_peak_domain)) -
-                         peak_counts_base_line)
+            spectrum = spectrum_tools.subtract_background_from_spectra_peak(spectrum, estimated_peak_center,
+                                                                            resolution_estimation,
+                                                                            left_energy_peak_domain,
+                                                                            right_energy_peak_domain)
+        peak_spectrum = spectrum.sel(energy=slice(left_energy_peak_domain, right_energy_peak_domain))
         fit_params, cov = fit_functions.fit_gaussian(peak_spectrum, estimated_peak_center, resolution_estimation)
         return fit_params, cov
 
@@ -103,7 +114,7 @@ class Spectrum:
         """ return the full width half maximum of a peak
         if background_subtraction=True subtract background"""
         fit_params, cov = self.peak_gaussian_fit_parameters(energy_in_the_peak,
-                                                            resolution_estimation, background_subtraction=False)
+                                                            resolution_estimation, background_subtraction)
         fwhm = fit_params[2]
         fwhm_error = (cov[2, 2] ** 0.5 +
                       (cov[1, 1] ** 0.5 / fit_params[1]) * np.abs(cov[2, 1]) ** 0.5 +
@@ -114,7 +125,7 @@ class Spectrum:
         """ return the full width half maximum of a peak
         if background_subtraction=True subtract background"""
         fit_params, cov = self.peak_gaussian_fit_parameters(energy_in_the_peak,
-                                                            resolution_estimation, background_subtraction=False)
+                                                            resolution_estimation, background_subtraction)
         amplitude = fit_params[0]
         amplitude_error = (cov[0, 0] ** 0.5 +
                            (cov[1, 1] ** 0.5 / fit_params[1]) * np.abs(cov[0, 1]) ** 0.5 +
@@ -125,7 +136,7 @@ class Spectrum:
         """ return the full width half maximum of a peak
         if background_subtraction=True subtract background"""
         fit_params, cov = self.peak_gaussian_fit_parameters(energy_in_the_peak,
-                                                            resolution_estimation, background_subtraction=False)
+                                                            resolution_estimation, background_subtraction)
         amplitude = fit_params[1]
         amplitude_error = (cov[1, 1] ** 0.5 +
                            (cov[0, 0] ** 0.5 / fit_params[0]) * np.abs(cov[1, 0]) ** 0.5 +
@@ -191,7 +202,8 @@ class Spectrum:
         fwhm, _ = self.peak_fwhm_fit_method(energy_in_the_peak, detector_energy_resolution,
                                             background_subtraction=True)
         # energy size of each bin
-        bin_energy_size = self.energy_calibration(1)-self.energy_calibration(0)
+        bin_energy_size = self.energy_calibration(1) - self.energy_calibration(0)
         # factor to get area under the fwhm
-        factor_of_area = 0.761438079 * np.sqrt(2 * np.pi) * (fwhm / (2*np.sqrt(2*np.log(2))))
-        return factor_of_area * amplitude * (1/bin_energy_size), factor_of_area * amplitude_error * (1/bin_energy_size)
+        factor_of_area = 0.761438079 * np.sqrt(2 * np.pi) * (fwhm / (2 * np.sqrt(2 * np.log(2))))
+        return factor_of_area * amplitude * (1 / bin_energy_size), factor_of_area * amplitude_error * (
+                    1 / bin_energy_size)

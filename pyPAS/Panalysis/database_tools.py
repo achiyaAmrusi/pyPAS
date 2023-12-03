@@ -46,10 +46,10 @@ def spectrum_w_calculation(spectrum, energy_domain_peak, energy_domain_w_left, e
     e_1_peak = energy_domain_peak[0]
     e_2_peak = energy_domain_peak[1]
 
-    s_parm = (spectrum.sel(energy=slice(e_1_l, e_2_l)).sum().values
+    w_parm = (spectrum.sel(energy=slice(e_1_l, e_2_l)).sum().values
               + spectrum.sel(energy=slice(e_1_r, e_2_r)).sum().values) / (
                  spectrum.sel(energy=slice(e_1_peak, e_2_peak)).sum().values)
-    return s_parm
+    return w_parm
 
 
 def read_hist(hist_path_path):

@@ -1,5 +1,4 @@
 import numpy as np
-import xarray as xr
 import math
 from uncertainties import unumpy
 import lmfit
@@ -8,22 +7,24 @@ from pyspectrum import fit_functions
 ELECTRON_MASS = 511
 
 
-def subtract_background_from_spectra_peak(spectrum, energy_in_the_peak, detector_energy_resolution,
+def subtract_background_from_spectra_peak(spectrum, energy_center_of_the_peak, detector_energy_resolution,
                                           peak_limit_low_energy=None, peak_limit_high_energy=None):
     """ create a subtracted background pyspectrum from the xarray pyspectrum
     the method of the subtraction is as follows -
      - find the peak domain and the mean count in the edges
-     - calculated erf according to the edgec
+     - calculated erf according to the edges
      - subtract edges from pyspectrum  """
     # calculating the peak domain
     if (peak_limit_low_energy is None) or (peak_limit_high_energy is None):
         peak_limit_low_energy, peak_limit_high_energy = domain_of_peak(spectrum,
-                                                                       energy_in_the_peak, detector_energy_resolution)
-    energy_center_of_the_peak = calculate_peak_center(spectrum, energy_in_the_peak, detector_energy_resolution)
+                                                                       energy_center_of_the_peak,
+                                                                       detector_energy_resolution)
+    # slices from the peak edges
     spectrum_slice_low_energy = spectrum.sel(energy=slice(peak_limit_low_energy - 5 * detector_energy_resolution,
                                                           peak_limit_low_energy))
     spectrum_slice_high_energy = spectrum.sel(energy=slice(peak_limit_high_energy,
                                                            peak_limit_high_energy + 5 * detector_energy_resolution))
+
     # the mean counts in the domain edges (which define the background function)
     mean_of_function_slice_low_energy = unumpy.nominal_values(spectrum_slice_low_energy.values).mean()
     mean_of_function_slice_high_energy = unumpy.nominal_values(spectrum_slice_high_energy.values).mean()
@@ -37,13 +38,14 @@ def subtract_background_from_spectra_peak(spectrum, energy_in_the_peak, detector
     theta_funtion = np.array([1 if (peak_limit_high_energy > energy > compton_edge_energy) else 0
                               for energy in spectrum['energy'].values])
     spectrum_no_bg = (spectrum - 0.5 * (
-            mean_of_function_slice_low_energy - mean_of_function_slice_high_energy) * erf_background * theta_funtion)
+            mean_of_function_slice_low_energy - mean_of_function_slice_high_energy) * erf_background * theta_funtion -
+                      mean_of_function_slice_high_energy)
     return spectrum_no_bg
 
 
 def domain_of_peak(spectrum, energy_in_the_peak, detector_energy_resolution):
-    """ define the total area of the peak
-        The function takes pyspectrum slice in size of the resolution and check from which energy the counts are constant
+    """ define the total area of the peak.
+        The function takes spectrum slice in size of the resolution and check from which energy the counts are constant
         however because the counts are not constant,
         it checks when the counts N_sigma from the mean is larger than 1
         The auther notes that it is noticeable that the large energy side of the peak is much less noisy than lower side
@@ -132,3 +134,11 @@ def peak_center_rough_estimation(spectrum, energy_of_the_peak, detector_energy_r
     fwhm_slice = spectrum.sel(energy=slice(left_energy, right_energy))
     # return the mean energy in the fwhm which is the energy center
     return (fwhm_slice * fwhm_slice.coords['energy']).sum() / fwhm_slice.sum()
+
+
+def find_calibration(spectrum, channels_in_known_peaks, peak_center_energy):
+    """function will take Spectrum, channels in known peaks and the energy in those peaks (aligned).
+    Then,the center channel of each peak is located.
+    lastly calibration is optimized using lmfit module
+    """
+    return 0
