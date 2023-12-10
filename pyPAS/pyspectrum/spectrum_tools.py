@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import xarray as xr
 from uncertainties import unumpy
 import lmfit
 from pyspectrum import fit_functions
@@ -16,7 +17,8 @@ def subtract_background_from_spectra_peak(spectrum, energy_center_of_the_peak, d
      - subtract edges from pyspectrum  """
     # calculating the peak domain
     if (peak_limit_low_energy is None) or (peak_limit_high_energy is None):
-        peak_limit_low_energy, peak_limit_high_energy = domain_of_peak(spectrum,
+        nominal_spectrum = xr.DataArray(unumpy.nominal_values(spectrum.values), spectrum.coords)
+        peak_limit_low_energy, peak_limit_high_energy = domain_of_peak(nominal_spectrum,
                                                                        energy_center_of_the_peak,
                                                                        detector_energy_resolution)
     # slices from the peak edges

@@ -19,8 +19,9 @@
 import os
 import pandas as pd
 from uncertainties import unumpy
-from pas_objects import id_file
-from pyspectrum import spectrum_tools, load_spectrum
+import id_file
+from pyspectrum import spectrum_tools
+import load_spectrum
 
 ELECTRON_REST_MASS = 511
 

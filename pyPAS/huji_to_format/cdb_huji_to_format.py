@@ -82,7 +82,7 @@ def get_measurement_energy_list(huji_files_names):
     xxxxeV_ch000i"""
     energy_list = [filename.split('eV')[0] for filename in huji_files_names if 'eV_ch' in filename]
     # the energies appear twice for each detector thus we use set to filter the repetitive elements
-    energy_list = list(set(energy_list))
+    energy_list = list(energy_list)
     return energy_list
 
 

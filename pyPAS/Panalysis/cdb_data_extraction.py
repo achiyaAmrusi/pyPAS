@@ -1,7 +1,7 @@
 import os
 import pandas as pd
-from pyspectrum import load_spectrum
-from pas_objects import id_file
+import load_spectrum
+import id_file
 from Panalysis import database_tools
 
 ELECTRON_REST_MASS = 511

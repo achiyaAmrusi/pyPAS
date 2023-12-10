@@ -3,9 +3,8 @@ import os
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pas_objects import id_file, db
-from Panalysis import database_tools
-
+import id_file
+import db
 
 ELECTRON_REST_MASS = 511
 

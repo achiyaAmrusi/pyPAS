@@ -1,9 +1,9 @@
 import os
 from uncertainties import unumpy
 import pandas as pd
-from pas_objects import id_file
+import id_file
 from Panalysis import database_tools
-from pyspectrum import load_spectrum
+import load_spectrum
 
 ELECTRON_REST_MASS = 511
 
