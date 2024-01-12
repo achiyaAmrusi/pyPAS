@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from pas_measurement_objects.pydb import PASdb
+from pas_measurement_objects.pycdb import PAScdb
 
 ELECTRON_REST_MASS = 511
 
@@ -87,6 +88,9 @@ class BeamDbSet:
                                    peak_energy_resolution, background_subtraction)
         return self.defect_parameters
 
+    def save(self, files_path):
+        """save the data in the se in a file """
+
     @classmethod
     def from_files(cls, files_path, positron_energies, energy_calibration):
         """work, it loads   """
@@ -99,3 +103,57 @@ class BeamDbSet:
         db = [PASdb.from_file(files_path[ind], energy_calibration[ind]) for ind in range(len(files_path))]
         return BeamDbSet(db, positron_energies)
 
+
+class BeamCdbSet:
+    """
+    This object holds a dataframe of energies and doppler broadening spectrum measured in beam
+    Using the object the energy dependency of PAS parameters can be extracted.
+    Parameters:
+    - cdb_pair_list: list of pair
+    - energy_list:  !aligned! list of doppler broadening energy
+
+    """
+
+    def __init__(self, cdb_list, energy_list):
+        """ Constructor of BeamDbSet measurement"""
+        self.defect_parameters = pd.DataFrame({'energy': [], 'S': [], 'W': []})
+        self.beam_cdb = pd.DataFrame({'energy': energy_list, 'pair_list': cdb_list})
+        self.beam_cdb = self.beam_cdb.set_index('energy')
+
+    def calculate_s_parameter(self, energy_list, energy_dynamic_range, mesh_interval,
+                              energy_domain_total, energy_domain_s,
+                              peak_energy_resolution=1, background_subtraction=True):
+        db_list = [self.beam_cdb.loc[energy]['pair_list'].doppler_broadening_spectrum(self,
+                                                                                      energy_dynamic_range,
+                                                                                      mesh_interval)
+                   for energy in energy_list]
+        return BeamDbSet(db_list, energy_list).calculate_s_parameter(energy_list, energy_domain_total,
+                                                                     energy_domain_s,
+                                                                     peak_energy_resolution, background_subtraction)
+
+    def calculate_w_parameter(self, energy_list, energy_dynamic_range, mesh_interval,
+                              energy_domain_total, energy_domain_w_left, energy_domain_w_right,
+                              peak_energy_resolution=1, background_subtraction=True):
+        db_list = [self.beam_cdb.loc[energy]['pair_list'].doppler_broadening_spectrum(self,
+                                                                                      energy_dynamic_range,
+                                                                                      mesh_interval)
+                   for energy in energy_list]
+        return BeamDbSet(db_list, energy_list).calculate_w_parameter(energy_list, energy_domain_total,
+                                                                     energy_domain_w_left, energy_domain_w_right,
+                                                                     peak_energy_resolution, background_subtraction)
+
+    def update_all_defects_parameters(self, energy_domain_total,
+                                      energy_domain_s, energy_domain_w_left, energy_domain_w_right,
+                                      peak_energy_resolution=1, background_subtraction=True):
+        energy_list = self.beam_cdb.index
+        self.calculate_w_parameter(energy_list, energy_domain_total, energy_domain_w_left, energy_domain_w_right,
+                                   peak_energy_resolution, background_subtraction)
+        self.calculate_s_parameter(energy_list, energy_domain_total, energy_domain_s,
+                                   peak_energy_resolution, background_subtraction)
+        return self.defect_parameters
+
+    @classmethod
+    def from_files(cls, files_path, positron_energies):
+        """work, it loads   """
+        cdb_list = [PAScdb.from_file(files_path[ind]) for ind in range(len(files_path))]
+        return BeamCdbSet(cdb_list, positron_energies)

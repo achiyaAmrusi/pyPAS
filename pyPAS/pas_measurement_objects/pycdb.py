@@ -106,9 +106,9 @@ class PAScdb:
                 - Spectrum: Spectrum which has the domain according to energy_dynamic_range and the sum of counts of the
                 two-dimensional histogram vertical cut"""
         hist_2d, x_edges, y_edges = self.histogram_2d(energy_dynamic_range, mesh_interval)
-        resolution = hist_2d[0, :] * 0
-        for i in range(len(hist_2d[:, 0])):
-            resolution = resolution + hist_2d[i, :]
+        resolution = hist_2d[:, 0] * 0
+        for i in range(len(hist_2d[0, :])):
+            resolution = resolution + hist_2d[:, i]
         domain = np.array([(y_edges[i + 1] + y_edges[i]) / 2 for i in range(len(y_edges) - 1)])
         return Spectrum(resolution, domain)
 
