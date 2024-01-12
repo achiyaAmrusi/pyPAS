@@ -1,1 +1,1 @@
-from .pyspectrum import spectrum
+import pyspectrum

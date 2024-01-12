@@ -36,8 +36,7 @@ def fit_gaussian(xarray_spectrum, initial_peak_center=0, initial_fwhm=1):
     Fit a Gaussian to an xarray pyspectrum.
 
     Parameters:
-    - xarray_spectrum: xarray.DataArray
-        The pyspectrum with energy as coordinates.
+    - xarray_spectrum: xarray.DataArray The pyspectrum with 'x' as the only coordinate.
     - initial_peak_center: guess for initial peak center (default is 0)
     - initial_std: guess for initial std (default is 1 as approximated to HPGe detectors)
     Returns:
@@ -46,7 +45,7 @@ def fit_gaussian(xarray_spectrum, initial_peak_center=0, initial_fwhm=1):
     """
     # Extract counts and energy values from xarray
     counts = xarray_spectrum.values
-    energy_values = xarray_spectrum.coords['energy'].values
+    energy_values = xarray_spectrum.coords['x'].values
 
     # Initial guess for fit parameters
     initial_guess = [np.max(counts), initial_peak_center, initial_fwhm]

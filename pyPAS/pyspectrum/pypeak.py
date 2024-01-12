@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy as np
 import math
-from uncertainties import ufloat
+from uncertainties import ufloat, nominal_value
 import fit_functions
 
 
@@ -37,6 +37,9 @@ class Peak:
 
     - `counts_in_fwhm_fit_method(self, energy_in_the_peak, detector_energy_resolution=1)`:
       Calculate the sum of counts within the FWHM using a fit-based method.
+
+    - 'subtract_background(self):
+        subtract background from the peak
         """
 
     # Constructor method
@@ -53,10 +56,10 @@ class Peak:
         self.estimated_center, self.estimated_resolution = self.center_fwhm_estimator()
         if mean_count_left is None:
             channel_min = self.peak.coords['channel'][0]
-            self.height_left = peak_xarray.sel(channel=(channel_min,channel_min + self.estimated_resolution)).mean()
+            self.height_left = self.peak.sel(channel=slice(channel_min,channel_min + self.estimated_resolution)).mean()
         if mean_count_right is None:
             channel_max = self.peak.coords['channel'][-1]
-            self.height_right = peak_xarray.sel(channel=(channel_max- self.estimated_resolution,channel_max)).mean()
+            self.height_right = self.peak.sel(channel=slice(channel_max-self.estimated_resolution, channel_max)).mean()
 
     def center_fwhm_estimator(self):
         """ calculate the center of the peak
@@ -72,12 +75,13 @@ class Peak:
         half_max_count = maximal_count / 2
 
         # Find the energy values at which the counts are closest to half-maximum on each side
-        left_energy = peak.where(peak >= half_max_count, drop=True)['channel'].to_numpy()[0]
-        right_energy = peak.where(peak >= half_max_count, drop=True)['channel'].to_numpy()[-1]
+        minimal_channel = peak.where(peak >= half_max_count, drop=True)['channel'].to_numpy()[0]
+        maximal_channel = peak.where(peak >= half_max_count, drop=True)['channel'].to_numpy()[-1]
         # define the full width half maximum area (meaning the area which is bounded by the fwhm edges)
-        fwhm_slice = peak.sel(energy=slice(left_energy, right_energy))
+        fwhm_slice = peak.sel(channel=slice(minimal_channel, maximal_channel))
+        print(maximal_channel)
         # return the mean energy in the fwhm which is the energy center
-        return (fwhm_slice * fwhm_slice.coords['channel']).sum() / fwhm_slice.sum(), (right_energy - left_energy)
+        return (fwhm_slice * fwhm_slice.coords['channel']).sum() / fwhm_slice.sum(), (maximal_channel - minimal_channel)
 
     def peak_with_errors(self):
         """Return Peak. peak in ufloat for each count, the errors are in (counts)**0.5 format
@@ -85,7 +89,7 @@ class Peak:
         - xr.DataArray: Xarray representation of the spectrum with ufloat as values.
         """
         counts_with_error = [ufloat(count, abs(count) ** 0.5) for count in self.peak.values]
-        return xr.DataArray(counts_with_error, coords={'channel': counts_with_error}, dims=['channel'])
+        return xr.DataArray(counts_with_error, coords=self.peak.coords, dims=['channel'])
 
     def sum_method_counts_under_fwhm(self):
         """Calculate the sum of counts within the Full Width at Half Maximum (FWHM) of a peak.
@@ -109,10 +113,10 @@ class Peak:
         """
         # Calculate the peak domain and slice the peak
         fwhm, _ = self.fit_method_fwhm(background_subtraction=True)
-        peak_center = self.first_moment_method_center(background_subtraction=True)
-        minimal_energy = peak_center - fwhm / 2
-        maximal_energy = peak_center + fwhm / 2
-        fwhm_slice = (self.peak_with_errors()).sel(energy=slice(minimal_energy, maximal_energy))
+        peak_center = nominal_value(self.first_moment_method_center(background_subtraction=True).values.item())
+        minimal_channel = peak_center - fwhm / 2
+        maximal_channel = peak_center + fwhm / 2
+        fwhm_slice = (self.peak_with_errors()).sel(channel=slice(minimal_channel, maximal_channel))
         # return counts under fwhm
         return fwhm_slice.sum()
 
@@ -143,7 +147,9 @@ class Peak:
             peak = self.subtract_background()
         else:
             peak = self.peak
-        fit_params, cov = fit_functions.fit_gaussian(peak, self.estimated_center, self.estimated_resolution)
+        fit_params, cov = fit_functions.fit_gaussian(peak.rename({'channel': 'x'}),
+                                                     self.estimated_center,
+                                                     self.estimated_resolution)
         return fit_params, cov
 
     def fit_method_fwhm(self, background_subtraction=False):
@@ -252,7 +258,7 @@ class Peak:
         bin_size = self.peak.coords['channel'][1] - self.peak.coords['channel'][0]
         # factor to get area under the fwhm
         factor_of_area = 0.761438079 * np.sqrt(2 * np.pi) * (fwhm / (2 * np.sqrt(2 * np.log(2))))
-        return factor_of_area * amplitude * (1 / bin_size), factor_of_area * amplitude_error * (1 / bin_size)
+        return ufloat(factor_of_area * amplitude * (1 / bin_size), factor_of_area * amplitude_error * (1 / bin_size))
 
     def first_moment_method_center(self, background_subtraction=False):
         """Calculate the center (mean) of a peak in the spectrum.
@@ -282,11 +288,13 @@ class Peak:
         gaussian_center_error = (cov[1, 1] ** 0.5 +
                                  (cov[2, 2] ** 0.5 / fit_params[1]) * np.abs(cov[1, 2]) ** 0.5 +
                                  (cov[0, 0] ** 0.5 / fit_params[0]) * np.abs(cov[1, 0]) ** 0.5)
-        minimal_energy = gaussian_center - gaussian_center_error - fwhm - fwhm_error
-        maximal_energy = gaussian_center + gaussian_center_error + fwhm + fwhm_error
-        fwhm_slice = (self.peak_with_errors()).sel(energy=slice(minimal_energy, maximal_energy))
+        minimal_channel = max(gaussian_center - gaussian_center_error - fwhm - fwhm_error,
+                              self.peak.coords['channel'][0])
+        maximal_channel = min(gaussian_center + gaussian_center_error + fwhm + fwhm_error,
+                              self.peak.coords['channel'][-1])
+        fwhm_slice = (self.peak_with_errors()).sel(channel=slice(minimal_channel, maximal_channel))
         # return the mean energy in the fwhm which is the energy center
-        return (fwhm_slice * fwhm_slice.coords['energy']).sum() / fwhm_slice.sum()
+        return (fwhm_slice * fwhm_slice.coords['channel']).sum() / fwhm_slice.sum()
 
     def subtract_background(self):
         """ create a subtracted background pyspectrum from the xarray pyspectrum
@@ -298,8 +306,8 @@ class Peak:
         # define new coordinates in resolution units (for the error function to be defined correctly)
         peak = peak.assign_coords(channel=(peak.coords['channel']-self.estimated_center)/self.estimated_resolution)
         # define error function on the domain
-        erf_background = np.array([(math.erf(x) + 1) for x in peak.coords['channel'].to_numpy()])
+        erf_background = np.array([(math.erf(-x) + 1) for x in peak.coords['channel'].to_numpy()])
         # subtraction
-        peak_no_bg = (peak - 0.5 * (self.height_left - self.height_right) * erf_background - self.height_right)
+        peak_no_bg = (peak - 0.5 * float(self.height_left - self.height_right) * erf_background - self.height_right)
         # return the peak with the original coordinates
-        return peak_no_bg.assign_coords(self.peak.coords['channel'])
+        return peak_no_bg.assign_coords(channel=self.peak.coords['channel'])

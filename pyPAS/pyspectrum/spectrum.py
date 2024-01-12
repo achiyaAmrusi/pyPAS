@@ -179,7 +179,8 @@ class Spectrum:
 
 
     @classmethod
-    def load_spectrum_file_to_spectrum_class(file_path, energy_calibration_poly=np.poly1d([1, 0])):
+    def load_spectrum_file_to_spectrum_class(cls, file_path, energy_calibration_poly=np.poly1d([1, 0])):
+
         """
         load spectrum from a file which has 2 columns which tab between them
         first column is the channels/energy and the second is counts

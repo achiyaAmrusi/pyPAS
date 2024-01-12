@@ -3,7 +3,7 @@ import math
 import xarray as xr
 from uncertainties import unumpy
 import lmfit
-from pyspectrum import fit_functions
+import fit_functions
 # this needs to be in spectrum as a method
 ELECTRON_MASS = 511
 
