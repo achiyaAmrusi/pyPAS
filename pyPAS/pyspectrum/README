@@ -1,0 +1,5 @@
+This module suppose to be a tool for spectroscopy in general
+yielding peaks_identifier in Spectrum and Peak for each peak, the module can be used to analyze general spectra.
+However, for now, only gaussian shapes are analyzed in Peak. later that will bew extended.
+Spectrum support pyshield for geometrical efficiency calculation and activity analysis.
+later I hope to include alpha and beta mode.

@@ -35,28 +35,6 @@ class Spectrum:
 
     - `domain_of_peak(self, energy_in_the_peak, detector_energy_resolution=1)`:
       Find the energy domain of a peak in a spectrum.
-
-    - `peak_gaussian_fit_parameters(self, energy_in_the_peak, resolution_estimation=1, background_subtraction=False)`:
-      Fit a Gaussian function to a peak in the spectrum and return fit parameters.
-
-    - `peak_fwhm_fit_method(self, energy_in_the_peak, resolution_estimation=1, background_subtraction=False)`:
-      Calculate the Full Width at Half Maximum (FWHM) of a peak in the spectrum using peak_gaussian_fit_parameters.
-
-    - `peak_amplitude_fit_method(self, energy_in_the_peak, resolution_estimation=1, background_subtraction=False)`:
-      Calculate the amplitude of a peak in the spectrum using peak_gaussian_fit_parameters.
-
-    - `peak_center_fit_method(self, energy_in_the_peak, resolution_estimation=1, background_subtraction=False)`:
-      Calculate the center (mean) of a peak in the spectrum using peak_gaussian_fit_parameters.
-
-    - `peak_energy_center_first_moment_method(self, energy_in_the_peak, detector_energy_resolution=1,
-                                              background_subtraction=False)`:
-      Calculate the center (mean) of a peak using the first moment method.
-
-    - `counts_in_fwhm_sum_method(self, energy_in_the_peak, detector_energy_resolution=1)`:
-      Calculate the sum of counts within the Full Width at Half Maximum (FWHM) of a peak.
-
-    - `counts_in_fwhm_fit_method(self, energy_in_the_peak, detector_energy_resolution=1)`:
-      Calculate the sum of counts within the FWHM using a fit-based method.
         """
 
     # Constructor method

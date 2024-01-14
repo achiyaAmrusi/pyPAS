@@ -1,3 +1,3 @@
 from .spectrum import Spectrum
-from .pypeak import Peak
+from .peak import Peak
 import fit_functions

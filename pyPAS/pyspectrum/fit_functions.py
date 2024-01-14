@@ -55,3 +55,24 @@ def fit_gaussian(xarray_spectrum, initial_peak_center=0, initial_fwhm=1):
 
     return fit_params, cov
 
+
+def gaussian_1_dev(x, amplitude, mean, fwhm):
+    """
+    First derivative of a Gaussian.
+
+    Parameters:
+    - x: array-like
+        Input values.
+    - amplitude: float
+        Amplitude of the Gaussian.
+    - mean: float
+        Mean (center) of the Gaussian.
+    - fwhm: float
+        Standard deviation/2.35482 (width) of the Gaussian
+        this is half of the distance for which the Gaussian gives half of the maximum value.
+    Returns:
+    numpy array
+        first derivaive of a Gaussian.
+
+    """
+    return amplitude * (-(x-mean) / (fwhm/2.35482)) * gaussian(x, amplitude, mean, fwhm)
