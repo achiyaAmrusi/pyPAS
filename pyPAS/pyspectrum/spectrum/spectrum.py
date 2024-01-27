@@ -10,8 +10,7 @@ import numpy as np
 import pandas as pd
 from uncertainties import ufloat
 import lmfit
-import fit_functions
-import spectrum_tools
+from .fit_functions import residual_std_weight
 
 
 class Spectrum:
@@ -22,6 +21,8 @@ class Spectrum:
         - counts (numpy.ndarray): Array of counts.
         - channels (numpy.ndarray): Array of channels.
         - energy_calibration (numpy.poly1d): Polynomial for energy calibration.
+        - fwhm_calibration (function): function for fwhm calibration channel->fwhm.
+
            Methods:
 
     - `__init__(self, counts, channels, energy_calibration_poly=np.poly1d([1, 0]))`:
@@ -33,18 +34,23 @@ class Spectrum:
     - `change_energy_calibration(self, energy_calibration)`:
       Change the energy calibration polynomial of the Spectrum.
 
-    - `domain_of_peak(self, energy_in_the_peak, detector_energy_resolution=1)`:
-      Find the energy domain of a peak in a spectrum.
+    - `change_fwhm_calibration(self, fwhm_calibration)`:
+      Change the fwhm calibration function of the Spectrum.
+
+# this function must be in gamma_find_peak
+ #   - `domain_of_peak(self, energy_in_the_peak, detector_energy_resolution=1)`:
+ #     Find the energy domain of a peak in a spectrum.
         """
 
     # Constructor method
-    def __init__(self, counts, channels, energy_calibration_poly=np.poly1d([1, 0])):
+    def __init__(self, counts, channels, energy_calibration_poly=np.poly1d([1, 0]), fwhm_calibration=None):
         """ Constructor of Spectrum.
 
         Parameters:
         - counts (np.ndarray): 1D array of spectrum counts.
         - channels (np.ndarray): 1D array of spectrum channels.
         - energy_calibration_poly (np.poly1d): Calibration polynomial for energy calibration.
+        - fwhm_calibration (function): a given method
         """
         # Instance variables
         if not (isinstance(counts, np.ndarray) and counts.ndim == 1):
@@ -56,6 +62,7 @@ class Spectrum:
         if not isinstance(energy_calibration_poly, np.poly1d):
             raise TypeError("Variable energy_calibration_poly must be of type numpy.poly1d.")
         self.energy_calibration = energy_calibration_poly
+        self.fwhm_calibration = fwhm_calibration
 
     # Instance method
     def xr_spectrum(self, errors=False):
@@ -76,7 +83,7 @@ class Spectrum:
                                     dims=['energy'])
         return spectrum
 
-    def change_energy_calibration(self, energy_calibration):
+    def calibrate_energy(self, energy_calibration):
         """change the energy calibration polynom of Spectrum
          Parameters:
          - energy_calibration (np.poly1d): The calibration function energy_calibration(channel) -> detector energy.
@@ -87,6 +94,18 @@ class Spectrum:
         if not isinstance(energy_calibration, np.poly1d):
             raise TypeError("Variable x must be of type numpy.poly1d.")
         self.energy_calibration = energy_calibration
+
+    def calibrate_fwhm(self, fwhm_calibration):
+        """change the energy calibration polynom of Spectrum
+         Parameters:
+         - fwhm_calibration (function): The calibration function fwhm_calibration(channel) -> fwhm in the channel.
+
+        Returns:
+            Nothing.
+                """
+        if not callable(fwhm_calibration):
+            raise TypeError("fwhm_calibration needs to be callable.")
+        self.fwhm_calibration = fwhm_calibration
 
     def domain_of_peak(self, energy_in_the_peak, detector_energy_resolution=1):
         """Find the energy domain of a peak in a spectrum.
@@ -132,7 +151,7 @@ class Spectrum:
                                                        start_of_energy_slice))
             fit_params.add('a', value=1.0)
             fit_params.add('b', value=0.0)
-            result = lmfit.minimize(fit_functions.residual_std_weight, fit_params,
+            result = lmfit.minimize(residual_std_weight, fit_params,
                                     args=(spectrum_slice['energy'].values, spectrum_slice.values))
             flag = not ((result.params['a'].value <= 0) or (result.params['a'].value - result.params['a'].stderr <= 0))
             start_of_energy_slice = start_of_energy_slice - energy_step_size
@@ -148,7 +167,7 @@ class Spectrum:
                                                        start_of_energy_slice + 3 * detector_energy_resolution))
             fit_params.add('a', value=1.0)
             fit_params.add('b', value=0.0)
-            result = lmfit.minimize(fit_functions.residual_std_weight, fit_params,
+            result = lmfit.minimize(residual_std_weight, fit_params,
                                     args=(spectrum_slice['energy'].values, spectrum_slice.values))
             flag = not ((result.params['a'].value >= 0) or (result.params['a'].value - result.params['a'].stderr >= 0))
             start_of_energy_slice = start_of_energy_slice + energy_step_size
@@ -157,7 +176,9 @@ class Spectrum:
 
 
     @classmethod
-    def load_spectrum_file_to_spectrum_class(cls, file_path, energy_calibration_poly=np.poly1d([1, 0])):
+    def load_spectrum_file_to_spectrum_class(cls, file_path,
+                                             energy_calibration_poly=np.poly1d([1, 0]),
+                                             fwhm_calibration=None, sep='\t'):
 
         """
         load spectrum from a file which has 2 columns which tab between them
@@ -170,7 +191,9 @@ class Spectrum:
         """
         # Load the pyspectrum file in form of DataFrame
         try:
-            data = pd.read_csv(file_path, sep='\t')
+            data = pd.read_csv(file_path, sep=sep)
         except ValueError:
             raise FileNotFoundError(f"The given data file path '{file_path}' do not exist.")
-        return Spectrum(data[data.columns[1]].to_numpy(), data[data.columns[0]].to_numpy(), energy_calibration_poly)
+        return Spectrum(data[data.columns[1]].to_numpy(), data[data.columns[0]].to_numpy(),
+                        energy_calibration_poly,
+                        fwhm_calibration)

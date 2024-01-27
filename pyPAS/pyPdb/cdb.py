@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from pyspectrum.spectrum import Spectrum
-from pas_measurement_objects.pydb import PASdb
+from pyPAS.pyspectrum import Spectrum
+from pyPAS.pyPdb import PASdb
 
 ELECTRON_REST_MASS = 511
 

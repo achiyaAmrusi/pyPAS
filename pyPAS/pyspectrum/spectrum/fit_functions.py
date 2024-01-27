@@ -21,14 +21,14 @@ def gaussian(x, amplitude, mean, fwhm):
     - mean: float
         Mean (center) of the Gaussian.
     - fwhm: float
-        Standard deviation/2.35482 (width) of the Gaussian
+        Standard deviation/ (2 * np.sqrt(2 * np.log(2))) (width) of the Gaussian
         this is half of the distance for which the Gaussian gives half of the maximum value.
 
     Returns:
     - y: array-like
         Gaussian values.
     """
-    return amplitude * np.exp(-(1/2)*((x-mean) / (fwhm/2.35482))**2)
+    return amplitude * np.exp(-(1/2)*((x-mean) / (fwhm/(2 * np.sqrt(2 * np.log(2)))))**2)
 
 
 def fit_gaussian(xarray_spectrum, initial_peak_center=0, initial_fwhm=1):
@@ -75,4 +75,4 @@ def gaussian_1_dev(x, amplitude, mean, fwhm):
         first derivaive of a Gaussian.
 
     """
-    return amplitude * (-(x-mean) / (fwhm/2.35482)) * gaussian(x, amplitude, mean, fwhm)
+    return amplitude * (-(x-mean) / (fwhm/ (2 * np.sqrt(2 * np.log(2))))) * gaussian(x, amplitude, mean, fwhm)
