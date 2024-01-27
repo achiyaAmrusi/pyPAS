@@ -1,1 +1,1 @@
-import pyspectrum
+from .pyspectrum import Spectrum, Peak, PeakFinder

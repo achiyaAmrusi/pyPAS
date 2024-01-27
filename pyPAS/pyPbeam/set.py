@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
-from pas_measurement_objects.pydb import PASdb
-from pas_measurement_objects.pycdb import PAScdb
+from pyPAS.pyPdb import PASdb, PAScdb
 
 ELECTRON_REST_MASS = 511
 

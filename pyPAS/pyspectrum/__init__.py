@@ -1,3 +1,2 @@
-from .spectrum import Spectrum
-from .peak import Peak
-import fit_functions
+from .spectrum import Spectrum, Peak
+from .gamma_find_peak import PeakFinder

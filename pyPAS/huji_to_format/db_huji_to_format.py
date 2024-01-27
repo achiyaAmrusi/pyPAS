@@ -17,11 +17,7 @@
 # spectrum_files - positrons energy and pyspectrum
 #
 import os
-import numpy as np
-import pandas as pd
-
-from Panalysis import database_tools
-from huji_to_format import huji_to_format_tools
+import huji_to_format_tools
 
 
 ELECTRON_REST_MASS = 511
