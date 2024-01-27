@@ -57,7 +57,6 @@ class Peak:
         self.estimated_center, self.estimated_resolution = self.center_fwhm_estimator()
         if ufloat_count_left is None:
             channel_min = self.peak.coords['channel'][0]
-<<<<<<< HEAD
             left_side = self.peak.sel(channel=slice(channel_min, channel_min + self.estimated_resolution))
             self.height_left = ufloat(left_side.mean(), left_side.std())
         else:
@@ -72,17 +71,6 @@ class Peak:
             if not (isinstance(ufloat_count_right, type(ufloat(0, 0)))):
                 raise TypeError("Variable height_right must be of type ufloat.")
             self.height_right = ufloat_count_right
-=======
-            self.height_left = self.peak.sel(channel=slice(channel_min, channel_min + self.estimated_resolution)).mean()
-        else:
-            self.height_left = mean_count_left
-        if mean_count_right is None:
-            channel_max = self.peak.coords['channel'][-1]
-            self.height_right = self.peak.sel(
-                channel=slice(channel_max - self.estimated_resolution, channel_max)).mean()
-        else:
-            self.height_right = mean_count_right
->>>>>>> 79ab011c3747d866a38000868106ebc8f0104815
 
     def center_fwhm_estimator(self):
         """ calculate the center of the peak
@@ -142,12 +130,8 @@ class Peak:
         energy = self.peak.coords['channel']
         center_index = np.where(energy > peak_center)[0][0]
         de = energy[center_index+1] - energy[center_index]
-<<<<<<< HEAD
         fwhm_slice = (
             self.subtract_background(with_errors=True)).sel(channel=slice(minimal_channel-de/2, maximal_channel))
-=======
-        fwhm_slice = (self.subtract_background()).sel(channel=slice(minimal_channel-de/2, maximal_channel))
->>>>>>> 79ab011c3747d866a38000868106ebc8f0104815
         # return counts under fwhm
         return fwhm_slice.sum()
 
