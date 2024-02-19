@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
-from pyPAS.pyspectrum import Spectrum
+from pyspectrum import Peak
+from uncertainties import ufloat
 from pyPAS.pyPdb import PASdb
-
+import xarray as xr
 ELECTRON_REST_MASS = 511
 
 
@@ -39,33 +40,36 @@ class PAScdb:
     """
 
     # Constructor method
-    def __init__(self, measurements_pair_list):
+    def __init__(self, gamma_energy_pair):
         """ Constructor of CDB measurement
-        input:
-         counts_pair_list - 2d np.ndarray of spectrum counts
+        Parameters
+        ----------
+        gamma_energy_pair : pd.DataFrame
+        data fram of two columns named [energy_1, energy_2]
+        the columns contain the coincidence measurements s.t each line is a measurement of two coincidence photons
+        energy_1 is the energy measured in the detector 1 (similar with 2)
+        Returns
+        -------
+        nothing
          """
-        self.pair_list = measurements_pair_list
-
-    # Instance method
-    """change the energy calibration polynom of Spectrum
-     Parameters:
-     - energy_calibration (np.poly1d): The calibration function energy_calibration(channel) -> detector energy.
-
-    Returns:
-        Nothing.
-            """
+        self.pair_list = gamma_energy_pair
 
     def histogram_2d(self, energy_dynamic_range, mesh_interval):
-        """ return the energy coincidence two-dimensional histogram from all the cdb pairs in dataframe format.
-            Parameters:
-               energy_dynamic_range (list) - The energy range of the histogram away from ELECTRON_REST_MASS.
-               for example, if the minimal energy measured in the coincidence was 500 kev you might consider to have a
-                dynamic range of 11 kev to capture it
-               mesh_interval (float) : the energy interval between each 2 bins
-            Returns:
-                - tuple: a tuple containing hist_2d, edges of the x-axis, edges of y-axis
-                 where hist_2d is the two-dimensional histogram of the measurements, and edges_x and edges_y are
-                 the histogram edges"""
+        """
+        return the energy coincidence two-dimensional histogram from all the cdb pairs in dataframe format.
+        Parameters
+        ----------
+        energy_dynamic_range:  list
+         The energy range of the histogram away from ELECTRON_REST_MASS.
+        for example, if the minimal energy measured in the coincidence was 500 kev you might consider to have a
+        dynamic range of 11 kev to capture it
+        mesh_interval: float
+         the energy interval between each 2 bins
+        Returns
+        -------
+        tuple: a tuple containing hist_2d, edges of the x-axis, edges of y-axis
+        where hist_2d is the two-dimensional histogram of the measurements, and edges_x and edges_y are
+        the histogram edges"""
         cdb_pairs = self.pair_list
         # create the mesh
         # Adjust the range and number of bins as needed
@@ -80,20 +84,22 @@ class PAScdb:
 
     def doppler_broadening_spectrum(self, energy_dynamic_range, mesh_interval):
         """ return the energy coincidence doppler broadening from all the cdb pairs in dataframe format.
-            Parameters:
-               energy_dynamic_range (list) - The energy range of the histogram away from ELECTRON_REST_MASS.
-               for example, if the minimal energy measured in the coincidence was 500 kev you might consider to have a
-                dynamic range of 11 kev to capture it
-               mesh_interval (float) : the energy interval between each 2 bins
-            Returns:
-                - PASdb: doppler broadening PASdb which has the domain according to energy_dynamic_range and the sum of
-                counts of the two-dimensional histogram vertical cut"""
+        Returns
+        -------
+        energy_dynamic_range (list) - The energy range of the histogram away from ELECTRON_REST_MASS.
+        for example, if the minimal energy measured in the coincidence was 500 kev you might consider to have a
+        dynamic range of 11 kev to capture it
+        mesh_interval (float) : the energy interval between each 2 bins
+        Returns
+        -------
+        PASdb: doppler broadening PASdb which has the domain according to energy_dynamic_range and the sum of
+        counts of the two-dimensional histogram vertical cut"""
         hist_2d, x_edges, y_edges = self.histogram_2d(energy_dynamic_range, mesh_interval)
         doppler_broadening = hist_2d[0, :] * 0
         for i in range(len(hist_2d[:, 0])):
             doppler_broadening = doppler_broadening + hist_2d[i, :]
         domain = np.array([(x_edges[i + 1] + x_edges[i]) / 2 for i in range(len(x_edges) - 1)])
-        return PASdb(doppler_broadening, domain)
+        return PASdb(xr.DataArray(data=doppler_broadening, coords={'energy': domain}), ufloat(0,1), ufloat(0,1))
 
     def resolution_spectrum(self, energy_dynamic_range, mesh_interval):
         """ return the energy coincidence resolution spectrum from all the cdb pairs in dataframe format.
@@ -110,7 +116,8 @@ class PAScdb:
         for i in range(len(hist_2d[0, :])):
             resolution = resolution + hist_2d[:, i]
         domain = np.array([(y_edges[i + 1] + y_edges[i]) / 2 for i in range(len(y_edges) - 1)])
-        return Spectrum(resolution, domain)
+        return Peak(xr.DataArray(data=resolution, coords={'energy': domain}), ufloat(0,1), ufloat(0,1))
+
 
     @classmethod
     def from_file(cls, file_path):
