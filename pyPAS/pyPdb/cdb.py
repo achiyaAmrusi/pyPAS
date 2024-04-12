@@ -12,36 +12,33 @@ class PAScdb:
     An instance hold the coincidence measurement list pair (after filtering).
     From the list, 2d cdb histogram, doppler broadening spectrum, and resolution spectrum can be made.
 
-    Attributes:
-    - pair_list (numpy.ndarray): 2D array of coincidence measurement pairs.
+    Attributes
+    ----------
+    pair_list: numpy.ndarray
+    2D array of coincidence measurement pairs.
 
-    Methods:
-    - `__init__(self, measurements_pair_list)`:
+    Methods
+    -------
+    `__init__(self, measurements_pair_list)`:
       Constructor method to initialize a PAScdb instance.
-      input: measurements_pair_list - 2D numpy.ndarray of spectrum counts.
 
-    - `histogram_2d(self, energy_dynamic_range, mesh_interval)`:
+    `histogram_2d(self, energy_dynamic_range, mesh_interval)`:
       Returns the 2D CDB histogram.
-      input:
-        energy_dynamic_range (list): The energy range from ELECTRON_REST_MASS to the energy limit.
-        mesh_interval (float): The energy interval between each 2 bins.
-      return:
-        2D histogram, edges of the x-axis, edges of y-axis.
 
-    - `doppler_broadening_spectrum(self, energy_dynamic_range, mesh_interval)`:
+    `doppler_broadening_spectrum(self, energy_dynamic_range, mesh_interval)`:
       Returns the doppler broadening spectrum.
       Calculate the horizontal cut of the 2D CDB histogram.
-      return: PASdb instance representing the doppler broadening spectrum.
 
-    - `resolution_spectrum(self, energy_dynamic_range, mesh_interval)`:
+    `resolution_spectrum(self, energy_dynamic_range, mesh_interval)`:
       Returns the resolution spectrum.
       Calculate the vertical cut of the 2D CDB histogram.
-      return: Spectrum instance representing the resolution spectrum.
+
     """
 
     # Constructor method
     def __init__(self, gamma_energy_pair):
-        """ Constructor of CDB measurement
+        """
+        Constructor of CDB measurement
         Parameters
         ----------
         gamma_energy_pair : pd.DataFrame
@@ -83,9 +80,10 @@ class PAScdb:
         return hist_2d, x_edges, y_edges
 
     def doppler_broadening_spectrum(self, energy_dynamic_range, mesh_interval):
-        """ return the energy coincidence doppler broadening from all the cdb pairs in dataframe format.
-        Returns
-        -------
+        """
+        return the energy coincidence doppler broadening from all the cdb pairs in dataframe format.
+        Parameters
+        ----------
         energy_dynamic_range (list) - The energy range of the histogram away from ELECTRON_REST_MASS.
         for example, if the minimal energy measured in the coincidence was 500 kev you might consider to have a
         dynamic range of 11 kev to capture it
@@ -103,14 +101,18 @@ class PAScdb:
 
     def resolution_spectrum(self, energy_dynamic_range, mesh_interval):
         """ return the energy coincidence resolution spectrum from all the cdb pairs in dataframe format.
-            Parameters:
-               energy_dynamic_range (list) - The energy range of the histogram away from ELECTRON_REST_MASS.
-               for example, if the minimal energy measured in the coincidence was 500 kev you might consider to have a
-                dynamic range of 11 kev to capture it
-               mesh_interval (float) : the energy interval between each 2 bins
-            Returns:
-                - Spectrum: Spectrum which has the domain according to energy_dynamic_range and the sum of counts of the
-                two-dimensional histogram vertical cut"""
+        Parameters
+        ----------
+        energy_dynamic_range: list
+         The energy range of the histogram away from ELECTRON_REST_MASS.
+        for example, if the minimal energy measured in the coincidence was 500 kev you might consider to have a
+        dynamic range of 11 kev to capture it
+        mesh_interval: float
+        the energy interval between each 2 bins
+        Returns
+        -------
+        Spectrum: Spectrum which has the domain according to energy_dynamic_range and the sum of counts of the
+         two-dimensional histogram vertical cut"""
         hist_2d, x_edges, y_edges = self.histogram_2d(energy_dynamic_range, mesh_interval)
         resolution = hist_2d[:, 0] * 0
         for i in range(len(hist_2d[0, :])):
@@ -126,10 +128,14 @@ class PAScdb:
         each line in the file represents coincidence measurement.
         The first column is the energy measured in the first detector and the energy in the second column is the
         energy measured in the second detector.
-        Parameters:
-            file path - the path to the coincidence measurements list
-        Returns:
-            CDBpas: cdb spectrum from the file in PASdb class
+        Parameters
+        ----------
+        file path: str
+         the path to the coincidence measurements list
+        Returns
+        -------
+        CDBpas
+         cdb spectrum from the file in PASdb class
         """
         try:
             data = pd.read_csv(file_path, sep='\t')

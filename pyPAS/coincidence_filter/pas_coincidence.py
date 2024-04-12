@@ -116,7 +116,7 @@ class PasCoincidenceFilter:
         det_2_index = 0
         det_2_index_lim = len(det_1_time_energy) - 1
         for det_1_index, det_1_time in enumerate(det_1_time_energy['time']):
-            while det_1_time > det_2_time_energy['time'][det_2_index] and det_2_index < det_2_index_lim:
+            while det_1_time >= det_2_time_energy['time'][det_2_index] and det_2_index < det_2_index_lim:
                 if cls.time_coincidence_check([det_1_time, det_2_time_energy['time'][det_2_index]], max_time_interval):
                     coin_pair = [det_1_time_energy['energy'][det_1_index],
                                  det_2_time_energy['energy'][det_2_index]]

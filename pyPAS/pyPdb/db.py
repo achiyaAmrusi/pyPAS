@@ -1,7 +1,9 @@
 import numpy as np
+import pandas as pd
 import xarray as xr
 from uncertainties import ufloat
 from pyspectrum import Peak, Spectrum, FindPeaks, Convolution, gaussian_2_dev
+
 ELECTRON_REST_MASS = 511
 
 
@@ -53,11 +55,11 @@ class PASdb(Peak):
 
         Parameters
         ----------
-        - peak_energy_resolution (float): The energy resolution of the detector in the 511 kev energy peak.
-        - energy_domain_total (tuple/list): Tuple containing the total energy domain of interest of the defect parameter
+        energy_domain_total: iterable  (tuple/list)
+         Tuple containing the total energy domain of interest of the defect parameter
          calculation (e.g., (E1, E2)).
-        - energy_domain_s (tuple/list): Tuple containing the specific energy domain for S parameter calculation.
-        - background_subtraction (bool, optional): If True, subtract background before calculation. Default is True.
+        energy_domain_s: iterable  (tuple/list)
+         Tuple containing the specific energy domain for S parameter calculation.
 
         Returns
         -------
@@ -85,18 +87,18 @@ class PASdb(Peak):
                         peak.sel(channel=slice(e_1_peak, e_2_peak)).sum().values)
         return s_parm + s_parm_edges
 
-    def w_parameter_calculation(self,energy_domain_total, energy_domain_w_left, energy_domain_w_right):
+    def w_parameter_calculation(self, energy_domain_total, energy_domain_w_left, energy_domain_w_right):
         """Calculate the W parameter for the 511 kev peak of Spectrum according to domain definitions.
         Note that the error is calculated from the use of uncertainties module in pyspectrum values.
 
         Parameters
         ----------
-        - peak_energy_resolution (float): The energy resolution of the detector in the 511 kev energy peak.
-        - energy_domain_total (tuple/list): Tuple containing the total energy domain of interest of the defect parameter
+        energy_domain_total: iterable (tuple/list)
+         Tuple containing the total energy domain of interest of the defect parameter
          calculation (e.g., (E1, E2)).
-        - energy_domain_w_left, energy_domain_w_right (tuple/list): Tuple containing the specific energy domain
+        energy_domain_w_left, energy_domain_w_right: iterable (tuple/list)
+         Tuple (2 index) containing the specific energy domain
          for W parameter calculation in the right and left wing.
-        - background_subtraction (bool, optional): If True, subtract background before calculation. Default is True.
 
         Returns
         -------
@@ -135,7 +137,6 @@ class PASdb(Peak):
                      peak.sel(channel=slice(e_1_peak, e_2_peak)).sum().values)
         return w_parm + w_l_edges + w_r_edges
 
-
     @classmethod
     def from_file(cls, spectrum_file_path,
                   energy_calibration_poly=np.poly1d([1, 0]), fwhm_calibration=None,
@@ -168,6 +169,61 @@ class PASdb(Peak):
                                       sep=sep, **kwargs)
         estimated_FWHM_ch = lambda ch: fwhm_calibration(energy_calibration_poly(ch)) / energy_calibration_poly[1]
         convolution = Convolution(estimated_FWHM_ch, gaussian_2_dev, 4)
+        find_peaks = FindPeaks(spectrum, convolution, fitting_type='HPGe_spectroscopy')
+        peak = find_peaks.to_peak(ELECTRON_REST_MASS)
+        return PASdb(peak.peak, peak.height_left, peak.height_right)
+
+    @classmethod
+    def from_dataframe(cls, spectrum_data_frame: pd.DataFrame,
+                       energy_calibration_poly=np.poly1d([1, 0]), fwhm_calibration=None):
+        """
+        load spectrum from a dataframe which has 2 columns
+        first column is the channel and the second is counts
+        function return Spectrum
+
+        Parameters
+        ----------
+        spectrum_data_frame: pd.DataFrame
+         spectrum in form of a dataframe such that the column are -  'channel', 'counts'
+        energy_calibration_poly: numpy.poly1d([a, b])
+        the energy calibration of the detector
+        fwhm_calibration: Callable
+        a function that given energy/channel(first raw in file) returns the fwhm
+
+        Returns
+        -------
+        PASdb
+        db spectrum from the file in PASdb class .
+        """
+        # Load the pyspectrum file in form of DataFrame
+        spectrum = Spectrum.from_dataframe(spectrum_data_frame, energy_calibration_poly=energy_calibration_poly,
+                                           fwhm_calibration=fwhm_calibration)
+        estimated_fwhm_ch = lambda ch: fwhm_calibration(energy_calibration_poly(ch)) / energy_calibration_poly[1]
+        convolution = Convolution(estimated_fwhm_ch, gaussian_2_dev, 4)
+        find_peaks = FindPeaks(spectrum, convolution, fitting_type='HPGe_spectroscopy')
+        peak = find_peaks.to_peak(ELECTRON_REST_MASS)
+        return PASdb(peak.peak, peak.height_left, peak.height_right)
+
+    @classmethod
+    def from_spectrum(cls, spectrum: Spectrum):
+        """
+        load spectrum, look for the 511 peak and return it
+
+        Parameters
+        ----------
+        spectrum: pd.DataFrame
+         spectrum object with annhilation peak
+
+        Returns
+        -------
+        PASdb
+        db spectrum from the file in PASdb class .
+        """
+        # Load the pyspectrum file in form of DataFrame
+
+        estimated_fwhm_ch = lambda ch: spectrum.fwhm_calibration(
+            spectrum.energy_calibration(ch)) / spectrum.energy_calibration[1]
+        convolution = Convolution(spectrum.fwhm_calibration, gaussian_2_dev, 5)
         find_peaks = FindPeaks(spectrum, convolution, fitting_type='HPGe_spectroscopy')
         peak = find_peaks.to_peak(ELECTRON_REST_MASS)
         return PASdb(peak.peak, peak.height_left, peak.height_right)
