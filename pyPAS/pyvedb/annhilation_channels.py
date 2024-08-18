@@ -1,7 +1,7 @@
 """ positron depth profiling fit"""
 import pandas as pd
 import xarray as xr
-from pyPAS.pyvep.sample import Sample, Material, Layer
+from pyPAS.pyvedb.sample import Sample, Material, Layer
 
 
 def profile_annihilation_fraction(positron_profile: xr.DataArray, sample: Sample):
@@ -41,6 +41,7 @@ def profile_annihilation_fraction(positron_profile: xr.DataArray, sample: Sample
     for i, layer in enumerate(layers):
         layer_positron_profile = positron_profile.sel(x=slice(layers_location[i][0], layers_location[i][1]))
         positron_fraction_in_layer = layer_positron_profile.integrate('x')
+ #       print(i, positron_fraction_in_layer)
 
         for annihilation_type in layer.material.annihilation_rates:
             annihilation_fraction = (
@@ -57,3 +58,6 @@ def profile_annihilation_fraction(positron_profile: xr.DataArray, sample: Sample
     total_annihilation_fractions.annihilation_fraction = (total_annihilation_fractions.annihilation_fraction /
                                                           total_annihilation_fractions.annihilation_fraction.sum())
     return total_annihilation_fractions.set_index(['layer', 'annihilation_type'])
+
+
+

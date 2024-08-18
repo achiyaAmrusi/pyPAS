@@ -1,4 +1,4 @@
-from pyPAS.pyvep.sample import Sample
+from pyPAS.pyvedb.sample import Sample
 
 
 def material_in_location(sample: Sample, location: float):

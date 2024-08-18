@@ -169,7 +169,7 @@ class PASdb(Peak):
                                       sep=sep, **kwargs)
         estimated_FWHM_ch = lambda ch: fwhm_calibration(energy_calibration_poly(ch)) / energy_calibration_poly[1]
         convolution = Convolution(estimated_FWHM_ch, gaussian_2_dev, 4)
-        find_peaks = FindPeaks(spectrum, convolution, fitting_type='HPGe_spectroscopy')
+        find_peaks = FindPeaks(spectrum, convolution)
         peak = find_peaks.to_peak(ELECTRON_REST_MASS)
         return PASdb(peak.peak, peak.height_left, peak.height_right)
 
@@ -199,8 +199,8 @@ class PASdb(Peak):
         spectrum = Spectrum.from_dataframe(spectrum_data_frame, energy_calibration_poly=energy_calibration_poly,
                                            fwhm_calibration=fwhm_calibration)
         estimated_fwhm_ch = lambda ch: fwhm_calibration(energy_calibration_poly(ch)) / energy_calibration_poly[1]
-        convolution = Convolution(estimated_fwhm_ch, gaussian_2_dev, 4)
-        find_peaks = FindPeaks(spectrum, convolution, fitting_type='HPGe_spectroscopy')
+        convolution = Convolution(estimated_fwhm_ch, gaussian_2_dev)
+        find_peaks = FindPeaks(spectrum, convolution)
         peak = find_peaks.to_peak(ELECTRON_REST_MASS)
         return PASdb(peak.peak, peak.height_left, peak.height_right)
 
@@ -221,9 +221,7 @@ class PASdb(Peak):
         """
         # Load the pyspectrum file in form of DataFrame
 
-        estimated_fwhm_ch = lambda ch: spectrum.fwhm_calibration(
-            spectrum.energy_calibration(ch)) / spectrum.energy_calibration[1]
-        convolution = Convolution(spectrum.fwhm_calibration, gaussian_2_dev, 5)
-        find_peaks = FindPeaks(spectrum, convolution, fitting_type='HPGe_spectroscopy')
+        convolution = Convolution(spectrum.fwhm_calibration, gaussian_2_dev)
+        find_peaks = FindPeaks(spectrum, convolution, n_sigma_threshold=5)
         peak = find_peaks.to_peak(ELECTRON_REST_MASS)
         return PASdb(peak.peak, peak.height_left, peak.height_right)

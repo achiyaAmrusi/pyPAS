@@ -2,8 +2,8 @@ from math import floor
 import numpy as np
 import xarray as xr
 from scipy.integrate import solve_bvp
-from pyPAS.pyvep.sample import Sample
-from pyPAS.pyvep.utils import material_in_location
+from pyPAS.pyvedb.sample import Sample
+from pyPAS.pyvedb.utils import material_in_location
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 import time
@@ -62,15 +62,13 @@ def scipy_positrons_annihilation_profile(positron_implementation_profile: xr.Dat
 
         # check in which material the point is, and get the annhilation rates
         materials = [sample.find_layer(x).material for x in location]
-        annhilation_rate_bulk = np.array([material.eff_annihilation_rate_bulk for material in materials])
-        annhilation_rate_defects = np.array([material.eff_annihilation_rate_defects for material in materials])
 
         eff_annihilation_rate = np.array([sum(material.annihilation_rates.values()) for material in materials])
 
         # positron influx in the locations
         I = positron_implementation_profile.interp(x=location)
         I = I.fillna(0)
-
+        I[0] = 0
         # electric field in the location
         if electric_field is None:
             E = np.zeros_like(location)
@@ -111,7 +109,7 @@ def scipy_positrons_annihilation_profile(positron_implementation_profile: xr.Dat
 
     sol = solve_bvp(fun=ode_system, bc=boundary_conditions, x=mesh,
                     y=np.vstack((initial_guess, initial_guess.differentiate('x'))),
-                    max_nodes=max(num_of_mesh_cells + 1, 1000))
+                    max_nodes=max(num_of_mesh_cells + 1, 1000), tol=1e-5)
     return sol
 
 
@@ -171,29 +169,38 @@ def fast_positrons_annihilation_profile(positron_implementation_profile: xr.Data
         diffusion = mat.diffusion
         mobility = mat.mobility
         padding_index_off_up = 0 if i > 0 else 1
-        padding_index_off_down = 0 if i < (len(sample.layers) - 1) else -1
+        padding_index_off_down = 0 if i < (len(sample.layers) - 1) else - 1
+
+        padding_index_boundary_up = 0 if i < (len(sample.layers) - 1) else 1
+        padding_index_boundary_down = 1 if i > 0 else 0
+
         main_diag[layer_index[0]: layer_index[1]] = (-2 * diffusion / dx ** 2 -
                                                      lambda_eff +
-                                                     np.nan_to_num(electric_field.interp(x=mesh[layer_index[0]:layer_index[1]])) * mobility / dx)
-        off_diag_up[layer_index[0] - 1 + padding_index_off_up: layer_index[1] - 1] = (diffusion / dx ** 2 -
+                                                     np.nan_to_num(electric_field.interp(x=mesh[layer_index[0]: layer_index[1]])) * mobility / dx)
+        off_diag_up[layer_index[0] - 1 + padding_index_off_up: layer_index[1] - 1 + padding_index_boundary_up] = (diffusion / dx ** 2 -
                                                                                       np.nan_to_num(electric_field.interp(x=mesh[layer_index[0] - 1 + padding_index_off_up:layer_index[1] - 1])) * mobility / dx)
-        off_diag_down[layer_index[0] + 1: layer_index[1] + 1 + padding_index_off_down] = diffusion / dx ** 2
+        off_diag_down[layer_index[0] + padding_index_boundary_down: layer_index[1] + 1 + padding_index_off_down] = diffusion / dx ** 2
 
     # boundary condition
-    # x = 0
-    L_a = sample.layers[0].material.diffusion / sample.surface_capture_rate
-    main_diag[0] = - 1 / dx - 1 / L_a
-    off_diag_up[0] = 1 / dx
     # x = end
     main_diag[-1] = 1
-    off_diag_up[-1] = 0
     off_diag_down[-1] = 0
+    # x = 0
+    mat = sample.layers[0].material
+    lambda_eff = sum(mat.annihilation_rates.values())
+    diffusion = mat.diffusion
+    mobility = mat.mobility
+# add field
+    main_diag[0] = - sample.surface_capture_rate - lambda_eff * dx / 2 - diffusion / dx
+    off_diag_up[0] = diffusion / dx
 
     finite_diff_matrix = sp.diags([main_diag, off_diag_up, off_diag_down], [0, 1, -1], shape=(len(mesh), len(mesh)))
 
     # positron implementation profile
     positron_implementation = positron_implementation_profile.interp(x=mesh)
     positron_implementation = np.nan_to_num(positron_implementation)
+    positron_implementation[-1] = 0
+    positron_implementation[0] = positron_implementation[0] * dx / 2
 
     # solve for the positron distribution
     final_positron_distribution = sp.linalg.spsolve(A=finite_diff_matrix.tocsr(), b=-positron_implementation)

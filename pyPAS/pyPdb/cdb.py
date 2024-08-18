@@ -66,7 +66,8 @@ class PAScdb:
         -------
         tuple: a tuple containing hist_2d, edges of the x-axis, edges of y-axis
         where hist_2d is the two-dimensional histogram of the measurements, and edges_x and edges_y are
-        the histogram edges"""
+        the histogram edges
+        the x axs correspond to db and the y axis to the resolution"""
         cdb_pairs = self.pair_list
         # create the mesh
         # Adjust the range and number of bins as needed

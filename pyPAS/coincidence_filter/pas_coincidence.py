@@ -46,7 +46,7 @@ class PasCoincidenceFilter:
                    sep=' ', skiprows=5,
                    det_1_energy_calibration_poly=np.poly1d([1, 0]), det_2_energy_calibration_poly=np.poly1d([1, 0]),
                    det_1_energy_resolution=1, det_2_energy_resolution=1,
-                   max_time_interval=10):
+                   max_time_interval=10, number_of_cdb_sigma=3):
         """
         Filter the files to get only the pas coincidence cases using from dataframe
 
@@ -78,13 +78,13 @@ class PasCoincidenceFilter:
         return cls.from_dataframe(det_1_time_channel_df, det_2_time_channel_df,
                                   det_1_energy_calibration_poly, det_2_energy_calibration_poly,
                                   det_1_energy_resolution, det_2_energy_resolution,
-                                  max_time_interval)
+                                  max_time_interval, number_of_cdb_sigma)
 
     @classmethod
     def from_dataframe(cls, det_1_time_channel: pd.DataFrame, det_2_time_channel: pd.DataFrame,
                        det_1_energy_calibration_poly=np.poly1d([1, 0]), det_2_energy_calibration_poly=np.poly1d([1, 0]),
                        det_1_energy_resolution=1, det_2_energy_resolution=1,
-                       max_time_interval=10):
+                       max_time_interval=10, number_of_cdb_sigma=3):
         """
         Going through the time and energy stamps of 2 detectors data looking for coincidence pair.
         if the counts pair are valid coincidence measurement, the function saves it.
@@ -114,13 +114,13 @@ class PasCoincidenceFilter:
         det_2_time_energy = cls.df_time_channel_to_time_energy(det_2_time_channel, det_2_energy_calibration_poly)
         # the index of 1 is defined in the for loop
         det_2_index = 0
-        det_2_index_lim = len(det_1_time_energy) - 1
+        det_2_index_lim = len(det_2_time_energy) - 1
         for det_1_index, det_1_time in enumerate(det_1_time_energy['time']):
-            while det_1_time >= det_2_time_energy['time'][det_2_index] and det_2_index < det_2_index_lim:
+            while det_2_index < det_2_index_lim and (det_1_time >= det_2_time_energy['time'][det_2_index] or cls.time_coincidence_check([det_1_time, det_2_time_energy['time'][det_2_index]], max_time_interval)):
                 if cls.time_coincidence_check([det_1_time, det_2_time_energy['time'][det_2_index]], max_time_interval):
                     coin_pair = [det_1_time_energy['energy'][det_1_index],
                                  det_2_time_energy['energy'][det_2_index]]
-                    if cls.energy_coincidence_check(coin_pair, det_1_energy_resolution, det_2_energy_resolution):
+                    if cls.energy_coincidence_check(coin_pair, det_1_energy_resolution, det_2_energy_resolution, number_of_cdb_sigma):
                         coincidence_list.append(coin_pair)
                 det_2_index = det_2_index + 1
         data = np.array(coincidence_list)
@@ -169,7 +169,7 @@ class PasCoincidenceFilter:
         return abs(time_coincidence_pair[1] - time_coincidence_pair[0]) < max_time_interval
 
     @classmethod
-    def energy_coincidence_check(cls, energy_coincidence_pair, det_1_fwhm, det_2_fwhm):
+    def energy_coincidence_check(cls, energy_coincidence_pair, det_1_fwhm, det_2_fwhm, number_of_cdb_sigma=3):
         """
         True if the coincidence pair is a coincidence instance and vice-versa.
         The pair energy sum to 2*ELECTRON_REST_MASS which are theoretically equal.
@@ -181,7 +181,8 @@ class PasCoincidenceFilter:
          Energy pair [E_1, E_2]
         det_1_fwhm, det_2_fwhm: float
          The energy resolution of the i'th detector
-
+        number_of_cdb_sigma: int default 3
+         the condition is abs(energy_1 + energy_2 - 2 * ELECTRON_REST_MASS) < number_of_cdb_sigma*(sig_2 ** 2 + sig_1 ** 2) ** 0.5
         Returns
         -------
          boolean
@@ -190,9 +191,9 @@ class PasCoincidenceFilter:
         energy_1 = energy_coincidence_pair[0]
         energy_2 = energy_coincidence_pair[1]
         # this calculation is expensive but is constant through all the measurement, i need to move it
-        sig_1 = det_1_fwhm / (2 * np.log(2)) ** 0.5
-        sig_2 = det_2_fwhm / (2 * np.log(2)) ** 0.5
+        sig_1 = det_1_fwhm# / (2 * np.log(2)) ** 0.5
+        sig_2 = det_2_fwhm# / (2 * np.log(2)) ** 0.5
         # are the difference between the sum of the 2 energies from 1022 is larger than three time the resolution
         # from each detector center? (six sigmas in total
-        flag = abs(energy_1 + energy_2 - 2 * ELECTRON_REST_MASS) < 3 * (sig_2 ** 2 + sig_1 ** 2) ** 0.5
+        flag = abs(energy_1 + energy_2 - 2 * ELECTRON_REST_MASS) < number_of_cdb_sigma*(sig_2 ** 2 + sig_1 ** 2) ** 0.5
         return flag

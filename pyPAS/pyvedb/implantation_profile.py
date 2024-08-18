@@ -48,7 +48,7 @@ def makhov_profile(depth_vector, positron_energy, density, makhov_parms):
         - density: float
         density of the material in gr/cc
         - makhov_parms: dictionary
-        the parameters for the fit which include the index - n, n, A_half
+        the parameters for the fit which include the index - n, m, A_half
         Returns
         -------
         The thermalized positron distribution in micron

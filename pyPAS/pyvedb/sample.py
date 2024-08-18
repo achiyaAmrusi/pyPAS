@@ -31,7 +31,8 @@ class Material:
     Attributes
     ----------
     - diffusion: float
-    diffusion constant
+    diffusion constant, for diffusion length calculation L,
+    can be taken as 1 where the effective annhilation rate is then 1/L**2
     - mobility: float
     positron mobility in presence of electrical field (the default is 0 for no electric field)
     - eff_annihilation_rate_bulk: float
@@ -45,8 +46,6 @@ class Material:
     def __init__(self, diffusion, mobility, eff_annihilation_rate_bulk, eff_annihilation_rate_defects, **kwargs):
         self.diffusion = diffusion
         self.mobility = mobility
-        self.eff_annihilation_rate_bulk = eff_annihilation_rate_bulk
-        self.eff_annihilation_rate_defects = eff_annihilation_rate_defects
         self.annihilation_rates = {'bulk': eff_annihilation_rate_bulk, 'defects': eff_annihilation_rate_defects}
         self.annihilation_rates.update(kwargs)
 
