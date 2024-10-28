@@ -1,1 +1,0 @@
-from .pas_coincidence import PasCoincidenceFilter

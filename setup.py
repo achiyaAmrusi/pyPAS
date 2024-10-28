@@ -1,9 +1,9 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='pyPAS',
-    version='0.1',
-    packages=['pyPAS', 'pyPAS.pyPdb', 'pyPAS.pyPbeam_DRAFT', 'pyPAS.detector_parser', 'pyPAS.coincidence_filter'],
+    version='1.0',
+    packages=find_packages(),
     url='',
     license='MIT',
     author='ahiaa',
