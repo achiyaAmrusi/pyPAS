@@ -121,7 +121,7 @@ class TwoBulkDiffusionLengthOptimization:
         s_vec = np.linalg.lstsq(annihilation_channel_rate_matrix, self.s_measurement, rcond=None)[0]
         s_sample = annihilation_channel_rate_matrix @ s_vec
 
-        if np.any(s_vec >= 1):
+        if np.any(s_vec>= 1):
             # if the s value is above 1 make the result high
             return s_sample*np.inf
         return s_sample
@@ -154,18 +154,19 @@ class TwoBulkDiffusionLengthOptimization:
             bounds = [(0, 0, 0), (np.inf, np.inf, np.inf)]
         else:
             if bounds[1][1] != 0 and bounds[1][1] != 0 and bounds[1][2] != 0:
-                lower_bounds = (1/bounds[1][0], 1/bounds[1][1]**0.5, 1/bounds[1][2]**0.5)
+                lower_bounds = (1/bounds[1][0], 1/bounds[1][1]**2, 1/bounds[1][2]**2)
             else:
                 warnings.warn("upper bound of L_a and L_b cannot be 0 use small number instead ", ValueError)
                 lower_bounds = (0, 0, 0)
             if bounds[0][0] != 0 and bounds[0][1] != 0 and bounds[0][2] != 0:
-                upper_bounds = (1/bounds[0][0], 1/bounds[0][1]**0.5, 1/bounds[0][2]**0.5)
+
+                upper_bounds = (1/bounds[0][0], 1/bounds[0][1]**2, 1/bounds[0][2]**2)
             else:
                 upper_bounds = (np.inf, np.inf, np.inf)
             bounds = [lower_bounds, upper_bounds]
         # fit the effective rates
         parm, cov = curve_fit(f=self.s_parameter_calculation, xdata=self.energies, ydata=self.s_measurement,
-                              sigma=self.s_measurement_dev, p0=initial_guess, bounds=bounds)
+                              sigma=self.s_measurement_dev, absolute_sigma=True, p0=initial_guess, bounds=bounds)
         # turn the effective rates into diffusion length
         effective_rate_fit_0 = ufloat(parm[1], cov[1, 1]**0.5)
         effective_rate_fit_1 = ufloat(parm[2], cov[2, 2] ** 0.5)

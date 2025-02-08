@@ -79,7 +79,7 @@ def makhov_profile(depth_vector, positron_energy, density, makhov_parms):
                         coords={'x': depth_vector})
 
 
-def multilayer_implementation_profile(positron_energy: int, depth_vector: np.ndarray,
+def multilayer_implementation_profile(positron_energy: float, depth_vector: np.ndarray,
                                       widths: list, materials_parameters: list, densities: list,
                                       implementation_profile_function=ghosh_profile):
     """

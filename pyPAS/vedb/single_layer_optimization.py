@@ -161,7 +161,8 @@ class OneBulkDiffusionLengthOptimization:
                 upper_bounds = (np.inf, np.inf)
             bounds = [lower_bounds, upper_bounds]
         parm, cov = curve_fit(f=self.s_parameter_calculation, xdata=self.energies, ydata=self.s_measurement,
-                              sigma=self.s_measurement_dev, p0=initial_guess, bounds=bounds)
+                              sigma=self.s_measurement_dev, absolute_sigma=True,
+                              p0=initial_guess, bounds=bounds)
         effective_rate_fit = ufloat(parm[1], cov[1, 1]**0.5)
         effective_surface_capture_rate_fit = ufloat(parm[0], cov[0, 0]**0.5)
         effective_length = {'layer_0': 1/effective_rate_fit**(1/2), 'surface': 1/effective_surface_capture_rate_fit}
