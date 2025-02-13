@@ -86,7 +86,7 @@ def finite_differences_matrix(sample: Sample, mesh_points: np.ndarray, electric_
     # The diffusion constant at each mesh point
     diffusion = np.zeros_like(mesh_points)
     drift = np.zeros_like(mesh_points)
-    λ_eff = np.zeros_like(mesh_points)
+    lambda_eff = np.zeros_like(mesh_points)
 
     # calculate the boundary indices for each layer
     layers_indices = np.zeros((len(sample.layers), 2))
@@ -100,14 +100,14 @@ def finite_differences_matrix(sample: Sample, mesh_points: np.ndarray, electric_
     for i in range(layers_indices.shape[0]):
         start, end = int(layers_indices[i][0]), int(layers_indices[i][1])
         diffusion[start:end] = sample.layers[i].material.diffusion
-        λ_eff[start:end] = sum(sample.layers[i].material.rates.values())
+        lambda_eff[start:end] = sum(sample.layers[i].material.rates.values())
         if electric_field is not None:
             drift[start:end] = sample.layers[i].material.mobility * electric_field.interp(x=mesh_points[start:end])
 
     # Calculate the 3 diagonals of the differential equation operator
     # (note: We use central central finite differences o(dz**2))
 
-    diag[1:-1] = -((diffusion[2:] + 2*diffusion[1:-1]+ diffusion[:-2]) / 2 / dx ** 2 + λ_eff[1:-1])
+    diag[1:-1] = -((diffusion[2:] + 2*diffusion[1:-1]+ diffusion[:-2]) / 2 / dx ** 2 + lambda_eff[1:-1])
     diag_upper[1:] = (diffusion[2:] + diffusion[1:-1]) / 2 / dx ** 2 - drift[2:] / 2 / dx
     diag_lower[:-1] = (diffusion[1:-1] + diffusion[:-2]) / 2 / dx ** 2 - drift[:-2] / 2 / dx
 
@@ -115,13 +115,13 @@ def finite_differences_matrix(sample: Sample, mesh_points: np.ndarray, electric_
         l_a = np.inf  # Effectively means no surface capture
     else:
         l_a = diffusion[0] / sample.surface_capture_rate
-    l_bulk = (diffusion[-1] / λ_eff[-1]) ** 0.5
+    l_bulk = (diffusion[-1] / lambda_eff[-1]) ** 0.5
     # boundary conditions are taken on the centers of the cells and not the edges for stability
-    diag[0] = -( 2*diffusion[0] / dx ** 2 + λ_eff[0] + (diffusion[0] / dx ** 2 + drift[0] / 2 / dx) * 2 * dx /l_a)
+    diag[0] = -( 2*diffusion[0] / dx ** 2 + lambda_eff[0] + (diffusion[0] / dx ** 2 + drift[0] / 2 / dx) * 2 * dx /l_a)
     diag_upper[0] = 2*diffusion[0] / dx ** 2
 
 
-    diag[-1] = -(2*diffusion[-1] / dx ** 2 + λ_eff[-1] + (diffusion[-1] / dx ** 2 - drift[-1] / 2 / dx) * (2 * dx / l_bulk))
+    diag[-1] = -(2*diffusion[-1] / dx ** 2 + lambda_eff[-1] + (diffusion[-1] / dx ** 2 - drift[-1] / 2 / dx) * (2 * dx / l_bulk))
     diag_lower[-1] = 2*diffusion[-1] / dx ** 2
 
     return sp.diags([diag, diag_upper, diag_lower],
