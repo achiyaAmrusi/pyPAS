@@ -87,13 +87,14 @@ def scipy_positrons_annihilation_profile(positron_implementation_profile: xr.Dat
         """
         The boundary condition definition for the beginning and end of the sample/
        The boundary conditions given are
-        (bc 1) c(inf) = 0
+        (bc 1) dc(x_f)/dx = c(x_f)/L_plus
         (bc 2) Ddc(0)/dx = $\alpha_s$*c(0) - > radiative condition
         Note: I'd like to make from both vacuum condition and see if it is more compatible
         """
         L_a = sample.layers[0].material.diffusion / sample.surface_capture_rate
+        L_p = (sample.layers[-1].material.diffusion / sum(sample.layers[-1].material.rates.values()))**(1/2)
         return np.array(
-            [density_in_surface[1] - density_in_surface[0] / L_a, density_in_deep_bulk[0]])  # Boundary conditions
+            [density_in_surface[1] - density_in_surface[0] / L_a, density_in_deep_bulk[1]+density_in_deep_bulk[0]/L_p])  # Boundary conditions
 
     # The mesh array
     mesh = np.linspace(0, sample.size, num_of_mesh_cells)
