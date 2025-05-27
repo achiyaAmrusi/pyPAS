@@ -21,7 +21,7 @@ class OneBulkDiffusionLengthOptimization:
     TODO: this optimization does not include drift velocity (when there are electric fields)
     Parameters
     ----------
-    - positron_implementation_profiles: list
+    - positron_implantation_profiles: list
     The profile of the positrons in the sample, this is a list of xarray
     - s_measurement: pd.Series
     The measurement ufloat values of S parameters with the energies as index
@@ -32,21 +32,21 @@ class OneBulkDiffusionLengthOptimization:
     number of cells for the discrimination of the space for the solution of the positron transport equation
     """
 
-    def __init__(self, positron_implementation_profiles: list,
+    def __init__(self, positron_implantation_profiles: list,
                  s_measurement: pd.Series,
                  initial_guess: Sample,
                  num_of_mesh_cells=10000):
         """
         Parameters
         ----------
-         - positron_implementation_profiles: list
-          a list of the implementation positron_implantation_profile for each energy
+         - positron_implantation_profiles: list
+          a list of the implantation positron_implantation_profile for each energy
         - s_measurement: pd.Series
-         a series of the s measurements, note it as to be the same length as positron_implementation_profiles
+         a series of the s measurements, note it as to be the same length as positron_implantation_profiles
          - initial_guess: Sample
          2 parameter for initial guess
         """
-        self.positron_implementation_profiles = positron_implementation_profiles
+        self.positron_implantation_profiles = positron_implantation_profiles
         self.initial_sample = initial_guess
         self.energies = s_measurement.index
         self.s_measurement = nominal_values(s_measurement)
@@ -74,9 +74,9 @@ class OneBulkDiffusionLengthOptimization:
 
     def rate_matrix(self, sample):
         """
-        Calculates the rate matrix of annihilation fractions for a given sample and multiple positron implementation profiles.
+        Calculates the rate matrix of annihilation fractions for a given sample and multiple positron implantation profiles.
 
-        For each implementation profile, the function:
+        For each implantation profile, the function:
         1. Solves the positron annihilation profile using the provided sample and profile.
         2. Calculates the annihilation fraction in three distinct regions: surface, bulk, and defects.
 
@@ -93,8 +93,8 @@ class OneBulkDiffusionLengthOptimization:
         """
         annihilation_channel_rate_matrix = np.zeros((2, len(self.energies)))
         for i, energy in enumerate(self.energies):
-            positron_implementation_profile = self.positron_implementation_profiles[i]
-            positron_profile_sol = positrons_annihilation_profile_solver(positron_implementation_profile,
+            positron_implantation_profile = self.positron_implantation_profiles[i]
+            positron_profile_sol = positrons_annihilation_profile_solver(positron_implantation_profile,
                                                                          sample,
                                                                          mesh_size=self.num_of_mesh_cells)
             df = profile_annihilation_fraction(positron_profile_sol, sample)

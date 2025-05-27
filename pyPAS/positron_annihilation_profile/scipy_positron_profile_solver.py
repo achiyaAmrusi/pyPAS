@@ -4,7 +4,7 @@ from pyPAS.sample.sample import Sample
 from scipy.integrate import solve_bvp
 
 
-def scipy_positrons_annihilation_profile(positron_implementation_profile: xr.DataArray,
+def scipy_positrons_annihilation_profile(positron_implantation_profile: xr.DataArray,
                                          sample: Sample,
                                          electric_field: xr.DataArray = None,
                                          num_of_mesh_cells=1000):
@@ -15,12 +15,12 @@ def scipy_positrons_annihilation_profile(positron_implementation_profile: xr.Dat
 
     Parameters
     ----------
-    - positron_implementation_profile: xarray.DataArray
+    - positron_implantation_profile: xarray.DataArray
     A function of the thermal positrons per micron in the sample. see also ghosh_profile, makhov_profile
     - sample: Sample
     The sample for which the positron_implantation_profile is calculated,
       it is advised to define the last layer to be
-        at least 3 mean free path from the end of the positron_implantation_profile (or where the implementation is negligible).
+        at least 3 mean free path from the end of the positron_implantation_profile (or where the implantation is negligible).
     - electric_field: xarray.DataArray
     The electric field value if it exists,
     If None, taken to be 0
@@ -61,7 +61,7 @@ def scipy_positrons_annihilation_profile(positron_implementation_profile: xr.Dat
         eff_annihilation_rate = np.array([sum(material.rates.values()) for material in materials])
 
         # positron influx in the locations
-        I = positron_implementation_profile.interp(x=location)
+        I = positron_implantation_profile.interp(x=location)
         I = I.fillna(0)
         I[0] = 0
         # electric field in the location
@@ -101,7 +101,7 @@ def scipy_positrons_annihilation_profile(positron_implementation_profile: xr.Dat
 
     # The initial guess of the positron positron_implantation_profile is the solution from the fast solve,
     # we can see in scipy if it converge
-    initial_guess = np.array([positron_implementation_profile.interp(x=x) for x in mesh])
+    initial_guess = np.array([positron_implantation_profile.interp(x=x) for x in mesh])
     initial_guess = xr.DataArray(np.nan_to_num(initial_guess), coords={'x': mesh})
 
     sol = solve_bvp(fun=ode_system, bc=boundary_conditions, x=mesh,

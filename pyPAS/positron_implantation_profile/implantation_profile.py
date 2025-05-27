@@ -22,7 +22,7 @@ def ghosh_profile(depth_vector, positron_energy, density, gosh_parms):
     for example, aluminum parameters can be extracted using gosh_material_parmeters().iloc[4]
     Returns
     -------
-    The implemented thermalized positron distribution  [positrons/micrometer/s]
+    The implanted thermalized positron distribution  [positrons/micrometer/s]
 
     Reference
     ---------
@@ -38,8 +38,9 @@ def ghosh_profile(depth_vector, positron_energy, density, gosh_parms):
     N_lm = gosh_parms['N_lm']
     c_lm = gosh_parms['c_lm']
     z_bar = (gosh_parms['B'] * (gosh_parms['density'] / density)) * positron_energy ** gosh_parms['n']
-    return xr.DataArray((N_lm / z_bar) * ((depth_vector / (c_lm * z_bar)) ** l) * np.exp(-(depth_vector / (c_lm * z_bar)) ** m),
-                        coords={'x': depth_vector})
+    profile = xr.DataArray((N_lm / z_bar) * ((depth_vector / (c_lm * z_bar)) ** l) * np.exp(-(depth_vector / (c_lm * z_bar)) ** m),
+        coords={'x': depth_vector})
+    return profile
 
 
 def makhov_profile(depth_vector, positron_energy, density, makhov_parms):
@@ -61,7 +62,7 @@ def makhov_profile(depth_vector, positron_energy, density, makhov_parms):
         for example, aluminum parameters are makhov_material_parmeters().iloc[4]
         Returns
         -------
-    The implemented thermalized positron distribution  [positrons/micrometer/s]
+    The implanted thermalized positron distribution  [positrons/micrometer/s]
 
     [1] Jerzy Dryzek et al. https://doi.org/10.1016/j.nimb.2008.06.033.
     """
@@ -79,11 +80,11 @@ def makhov_profile(depth_vector, positron_energy, density, makhov_parms):
                         coords={'x': depth_vector})
 
 
-def multilayer_implementation_profile(positron_energy: float, depth_vector: np.ndarray,
+def multilayer_implantation_profile(positron_energy: float, depth_vector: np.ndarray,
                                       widths: list, materials_parameters: list, densities: list,
-                                      implementation_profile_function=ghosh_profile):
+                                      implantation_profile_function=ghosh_profile):
     """
-    Calculate the positrons implementation profile in a multilayer sample, meaning,
+    Calculate the positrons implantation profile in a multilayer sample, meaning,
     the sample is composed from a number of layers and in each layer is composed of a different material.
     The profile of the positrons in each material is obtained by the profile function (Makhov or Ghosh) and
     Its respected parameters which are obtained by gosh_material_parmeters and makhov_material_parmeters
@@ -101,26 +102,26 @@ def multilayer_implementation_profile(positron_energy: float, depth_vector: np.n
         for example, aluminum parameters are gosh_material_parmeters().iloc[4]
     - densities: list
          floats list of each layer density
-    - implementation_profile_function: Callable (Default ghosh_profile)
-        The implementation profile function type (ghosh_profile or makhov_profile)
+    - implantation_profile_function: Callable (Default ghosh_profile)
+        The implantation profile function type (ghosh_profile or makhov_profile)
         The type needs to aligen with the parameters given inmaterials_parameters
     Returns
     -------
-    The implemented thermalized positron distributiom [positrons/micrometer/s]
+    The implanted thermalized positron distributiom [positrons/micrometer/s]
         """
 
-    implementation_profile = np.zeros_like(depth_vector)
+    implantation_profile = np.zeros_like(depth_vector)
 
     # if the depth vector is too short or too long rais warning
     if depth_vector[-1] > sum(widths):
-        warn('The implementation depth is larger than the size of all the layer\n' \
+        warn('The implantation depth is larger than the size of all the layer\n' \
              'the extra depth is caculated according to the last layer')
     if depth_vector[-1] < sum(widths[:-1]):
         warn('the implentation depth dose not reach last layer')
 
     # calculate each layer start and end indices #
     layers_indices = []
-    implementation_grid_indices = xr.DataArray(range(depth_vector.size), coords={'x': depth_vector})
+    implantation_grid_indices = xr.DataArray(range(depth_vector.size), coords={'x': depth_vector})
     layer_first_index = 0
     layer_last_index = 0
     total_width = 0
@@ -128,8 +129,8 @@ def multilayer_implementation_profile(positron_energy: float, depth_vector: np.n
     for width in widths:
         total_width = total_width + width
         layer_first_index = layer_last_index
-        layer_last_index = implementation_grid_indices.interp(x=total_width).item()
-        # if the layers are contained in the implememtation profile
+        layer_last_index = implantation_grid_indices.interp(x=total_width).item()
+        # if the layers are contained in the implantation profile
         if depth_vector[-1] > total_width:
             layer_last_index = int(np.ceil(layer_last_index))
             layers_indices.append([layer_first_index, layer_last_index])
@@ -137,17 +138,18 @@ def multilayer_implementation_profile(positron_energy: float, depth_vector: np.n
             layers_indices.append([layer_first_index, depth_vector.size - 1])
             # The next layer is not included in the depth vector so break
             break
-    # if the layers don't cover all the implementation profile pretend the last layer is infinite
+    # if the layers don't cover all the implantation profile pretend the last layer is infinite
     if depth_vector[-1] > total_width:
         layers_indices.append([layer_first_index, depth_vector.size - 1])
         materials_parameters.append(materials_parameters[-1])
         densities.append(densities[-1])
 
-    # calculate the implementation depth asa function of the depth for each layer #
+    # calculate the implantation depth asa function of the depth for each layer #
     for index, layer_indices in enumerate(layers_indices):
-        implementation_profile[layer_indices[0]:layer_indices[1]] = implementation_profile_function(
+        implantation_profile[layer_indices[0]:layer_indices[1]] = implantation_profile_function(
             depth_vector[layer_indices[0]:layer_indices[1]],
             positron_energy,
             densities[index],
             materials_parameters[-1])
-    return xr.DataArray(implementation_profile, coords={'x': depth_vector})
+    implantation_profile = xr.DataArray(implantation_profile, coords={'x': depth_vector})
+    return implantation_profile/implantation_profile.integrate('x')

@@ -5,7 +5,7 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
 
-def positrons_annihilation_profile_solver(positron_implementation_profile: xr.DataArray,
+def positrons_annihilation_profile_solver(positron_implantation_profile: xr.DataArray,
                                           sample: Sample,
                                           electric_field: xr.DataArray = None,
                                           mesh_size=10000):
@@ -17,8 +17,8 @@ def positrons_annihilation_profile_solver(positron_implementation_profile: xr.Da
 
     Parameters
     ----------
-    - positron_implementation_profile: xarray.DataArray
-    Thermal positron implementation profile [positron/second/micrometer] in the sample.
+    - positron_implantation_profile: xarray.DataArray
+    Thermal positron implantation profile [positron/second/micrometer] in the sample.
     Note that in the code the profile is linearly interpolated into the mesh points
      See ghosh_profile, makhov_profile
     - sample: Sample
@@ -45,10 +45,10 @@ def positrons_annihilation_profile_solver(positron_implementation_profile: xr.Da
     finite_diff_matrix = finite_differences_matrix(sample, mesh_points, electric_field)
 
     # define the thermal positron profile
-    positron_implementation = positron_implementation_profile.interp(x=mesh_points)
-    positron_implementation = np.nan_to_num(positron_implementation)
+    positron_implantation = positron_implantation_profile.interp(x=mesh_points)
+    positron_implantation = np.nan_to_num(positron_implantation)
     # solve for the positron distribution
-    final_positron_distribution = sp.linalg.spsolve(A=finite_diff_matrix.tocsr(), b=-positron_implementation)
+    final_positron_distribution = sp.linalg.spsolve(A=finite_diff_matrix.tocsr(), b=-positron_implantation)
 
     return xr.DataArray(final_positron_distribution, coords={'x': mesh_points})
 
@@ -109,13 +109,16 @@ def finite_differences_matrix(sample: Sample, mesh_points: np.ndarray, electric_
 
     diag[1:-1] = -((diffusion[2:] + 2*diffusion[1:-1]+ diffusion[:-2]) / 2 / dx ** 2 + lambda_eff[1:-1])
     diag_upper[1:] = (diffusion[2:] + diffusion[1:-1]) / 2 / dx ** 2 - drift[2:] / 2 / dx
-    diag_lower[:-1] = (diffusion[1:-1] + diffusion[:-2]) / 2 / dx ** 2 - drift[:-2] / 2 / dx
+    diag_lower[:-1] = (diffusion[1:-1] + diffusion[:-2]) / 2 / dx ** 2 + drift[:-2] / 2 / dx
 
     if sample.surface_capture_rate == 0:
         l_a = np.inf  # Effectively means no surface capture
     else:
         l_a = diffusion[0] / sample.surface_capture_rate
-    l_bulk = (diffusion[-1] / lambda_eff[-1]) ** 0.5
+    if lambda_eff[-1] == 0:
+        l_bulk = np.inf
+    else:
+        l_bulk = (diffusion[-1] / lambda_eff[-1]) ** 0.5
     # boundary conditions are taken on the centers of the cells and not the edges for stability
     diag[0] = -( 2*diffusion[0] / dx ** 2 + lambda_eff[0] + (diffusion[0] / dx ** 2 + drift[0] / 2 / dx) * 2 * dx /l_a)
     diag_upper[0] = 2*diffusion[0] / dx ** 2

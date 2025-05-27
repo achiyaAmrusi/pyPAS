@@ -11,6 +11,7 @@ class Layer:
     - start: float [nm]
     The location where the layer begin
     - width: float
+    - width: float
     The width of the sample
     - material: Material
     The material in the layer
