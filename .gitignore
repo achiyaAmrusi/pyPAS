@@ -1,4 +1,13 @@
-# Default ignored files
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VS Code / PyCharm project files (just in case)
+*.iml
 .idea/
+.vscode/
 .git/
 /pyPAS.egg-info/
