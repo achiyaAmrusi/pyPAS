@@ -28,7 +28,7 @@ class TwoBulkDiffusionLengthOptimization:
     number of cells for the discrimination of the space for the solution of the positron transport equation
     """
 
-    def __init__(self, positron_implantation_profiles: list,
+    def __init__(self, positron_implementation_profiles: list,
                  s_measurement: pd.Series,
                  initial_guess: Sample,
                  num_of_mesh_cells=10000):
@@ -42,7 +42,7 @@ class TwoBulkDiffusionLengthOptimization:
          - initial_guess: Sample
          2 parameter for initial guess
         """
-        self.positron_implantation_profiles = positron_implantation_profiles
+        self.positron_implementation_profiles = positron_implementation_profiles
         self.initial_sample = initial_guess
         self.energies = s_measurement.index
         self.s_measurement = nominal_values(s_measurement)
@@ -90,8 +90,8 @@ class TwoBulkDiffusionLengthOptimization:
         """
         annihilation_channel_rate_matrix = np.zeros((3, len(self.energies)))
         for i, energy in enumerate(self.energies):
-            positron_implantation_profile = self.positron_implantation_profiles[i]
-            positron_profile_sol = positrons_annihilation_profile_solver(positron_implantation_profile,
+            positron_implementation_profile = self.positron_implementation_profiles[i]
+            positron_profile_sol = positrons_annihilation_profile_solver(positron_implementation_profile,
                                                                          sample,
                                                                          mesh_size=self.num_of_mesh_cells)
             df = profile_annihilation_fraction(positron_profile_sol, sample)
