@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Project Is
 
-**PyPAS** is a Python library for Positron Annihilation Spectroscopy (PAS) analysis. It covers Doppler broadening (DB) and coincidence Doppler broadening (CDB) spectrum analysis, positron implantation profiling, finite-difference transport simulation, and variable-energy Doppler broadening (VEDB) diffusion-length fitting.
+**SciPAS** is a Python library for Positron Annihilation Spectroscopy (PAS) analysis. It covers Doppler broadening (DB) and coincidence Doppler broadening (CDB) spectrum analysis, positron implantation profiling, finite-difference transport simulation, and variable-energy Doppler broadening (VEDB) diffusion-length fitting.
 
-**Project name:** PyPAS  
-**PyPI / import name:** `pypas` (the package directory is `pypas/`)  
-**GitHub:** `achiyaAmrusi/pypas`  
+**Project name:** SciPAS  
+**PyPI / import name:** `scipas` (the package directory is `scipas/`)  
+**GitHub:** `achiyaAmrusi/scipas`  
 **Author:** Achiya Yosef Amrusi  
 **Email:** ahia.amrosi@mail.huji.ac.il (Hebrew University of Jerusalem)  
 **License:** MIT  
@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Install and Develop
 
 ```bash
-pip install -e "/home/owner/gitProjects/pyPAS[dev]"
+pip install -e "/home/owner/gitProjects/scipas[dev]"
 ```
 
 The companion spectrum library **SciSpectrum** (`scispectrum>=0.3` on PyPI) is listed in `pyproject.toml` dependencies and installed automatically.
@@ -31,11 +31,11 @@ The companion spectrum library **SciSpectrum** (`scispectrum>=0.3` on PyPI) is l
 ## Running Tests
 
 ```bash
-cd /home/owner/gitProjects/pyPAS
+cd /home/owner/gitProjects/scipas
 pytest tests/
 ```
 
-All test files carry the `test_` prefix and are discovered by pytest. The full suite (105 tests on main, 144 on lifetime) passes on Python 3.11–3.13. `tests/transport/diffusion/scipy_positron_profile_solver.py` is a reference/validation helper, not a test file.
+All test files carry the `test_` prefix and are discovered by pytest. The full suite (97 tests on main, 136 on lifetime) passes on Python 3.11–3.13. `tests/transport/diffusion/scipy_positron_profile_solver.py` is a reference/validation helper, not a test file.
 
 CI: `.github/workflows/tests.yml` runs pytest on Python 3.11, 3.12, 3.13 on every push and PR.
 
@@ -74,7 +74,7 @@ Transport + VEDB fitting:
 ### Module map
 
 ```
-pypas/
+scipas/
 ├── __init__.py              public API exports
 ├── core/
 │   ├── db.py               DB — extends Domain; S/W parameter extraction
@@ -91,7 +91,7 @@ pypas/
 │   ├── implantation/
 │   │   ├── profiles.py           makhov_profile, ghosh_profile
 │   │   ├── multilayer.py         multilayer_implantation_profile
-│   │   └── material_parameters.py loads tables via importlib.resources from pypas.libs.positron_profile
+│   │   └── material_parameters.py loads tables via importlib.resources from scipas.libs.positron_profile
 │   └── diffusion/
 │       └── positron_profile_solver.py  profile_solver — 1D FD diffusion-drift-annihilation solver
 ├── model/
@@ -117,7 +117,7 @@ pypas/
 
 SciSpectrum (on PyPI as `scispectrum`, source at `/home/owner/gitProjects/scispectrum`) provides the foundational types:
 
-| Type | Role in PyPAS |
+| Type | Role in SciPAS |
 |---|---|
 | `Spectrum` | Universal 1D count array with calibrated axis and Poisson errors |
 | `Domain` | Contiguous slice of a `Spectrum` — **`DB` inherits from it** |
@@ -198,6 +198,6 @@ All reviewer code issues for the CPC revision are resolved. Remaining items are 
 ## Notes
 
 - Do not read example data files (`.txt`, `.nc`, `.csv` in `examples/`).
-- Data files in `pypas/libs/` are package data loaded via `importlib.resources`. They are included in the distribution via `[tool.setuptools.package-data]` in `pyproject.toml`. The `__init__.py` files in `libs/` subdirectories are required for `importlib.resources.files()` to treat them as packages.
+- Data files in `scipas/libs/` are package data loaded via `importlib.resources`. They are included in the distribution via `[tool.setuptools.package-data]` in `pyproject.toml`. The `__init__.py` files in `libs/` subdirectories are required for `importlib.resources.files()` to treat them as packages.
 - `tests/transport/diffusion/scipy_positron_profile_solver.py` is a reference/validation implementation, not a test file. It is used by `test_fd_vs_scipy.py`.
 - `tests/transport/diffusion/test_fd_analytical.py` tests the FD solver against a closed-form analytical solution (< 0.01% error threshold).

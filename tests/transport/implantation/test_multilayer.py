@@ -32,10 +32,10 @@ def test_input_lists_mutated_by_multilayer(cu_params):
     """multilayer_implantation_profile appends to inputs when depth > model width."""
     mats = [cu_params]
     dens = [cu_params.density]
-    wids = [500]
+    widths = [500]
     with pytest.warns(UserWarning, match="implantation depth is larger"):
         multilayer_implantation_profile(
-            10, DEPTH, wids, mats, dens,
+            10, DEPTH, widths, mats, dens,
             implantation_profile_function=makhov_profile)
     assert len(mats) == 2, "multilayer_implantation_profile should mutate input lists"
     assert len(dens) == 2
