@@ -172,7 +172,8 @@ Full worked examples are in the [`examples/`](./examples) directory:
 
 **Implantation Profiles and Transport**
 - [Positron profile in Si](./examples/positron%20profile/positron%20profile%20in%20Si.ipynb) — Makhov and Ghosh profiles, multilayer stitching, transport solver, annihilation fractions
-- [Transport solver benchmark](./examples/transport%20benchmark/solver_benchmark.ipynb) — validates `profile_solver` against two analytical results: exact surface fraction formula and closed-form full profile; confirms O(N⁻²) convergence
+- [Surface-fraction benchmark](./examples/transport%20benchmark/surface_fraction_benchmark.ipynb) — validates `profile_solver` against the exact surface annihilation fraction formula
+- [Analytical profile benchmark](./examples/transport%20benchmark/general_analytical_profiles_benchmark.ipynb) — validates `profile_solver` against the closed-form full profile; confirms O(N⁻²) convergence
 
 ---
 
