@@ -22,11 +22,21 @@ class TimeResolution(ABC):
     Based on this interface, various resolution types can be defined.
     SciPAS currently provides two types of resolution classes:
     - MeasuredRF, measured based resolution function
-    - MultiGaussianRF, gausian fit based resolution
+    - MultiGaussianRF, gausian sum fit based resolution
 
     Methods
     -------
-    evaluate(time: np.ndarray) -> np.ndarray
+    - evaluate(time: np.ndarray) -> np.ndarray
+    - convolve(signal: np.ndarray, time: np.ndarray, t0: float = 0) -> np.ndarray
+
+    Notes
+    -----
+    - The convolution is performed in the time domain.
+    - The implementation assumes constant grid spacing.
+    """
+    @abstractmethod
+    def evaluate(self, time: np.ndarray) -> np.ndarray:
+        """
         Returns the instrument response function evaluated on the time axis.
 
         Parameters
@@ -37,87 +47,58 @@ class TimeResolution(ABC):
         Returns
         -------
         np.ndarray
-            Resolution function values on the same grid.
-
-    convolve(signal: np.ndarray, time: np.ndarray) -> np.ndarray
-        Performs numpy convolution between physical signal and RF.
-
-        Parameters
-        ----------
-        signal : np.ndarray
-            Ideal physics signal before detector distortion.
-
-        time : np.ndarray
-            Time axis corresponding to signal discretization.
-
-        Returns
-        -------
-        np.ndarray
-            Convolved signal truncated to original signal length.
-
-    Notes
-    -----
-    - The convolution is performed in the time domain.
-    - The implementation assumes constant grid spacing.
-    """
-    @abstractmethod
-    def evaluate(self, time: np.ndarray) -> np.ndarray:
-        """
-        Returns resolution function evaluated on time axis.
+            Resolution function values on the given grid.
         """
         pass
 
-    def convolve(self, signal: np.ndarray, t: np.ndarray) -> np.ndarray:
+    def convolve(self, signal: np.ndarray, time: np.ndarray, t0=0) -> np.ndarray:
         """
         Numerically convolve physical signal with instrument response function.
 
-        np.convolve(signal, irf, mode="full") produces an output of length
-        2*len(t)-1, where output index k corresponds to time:
+        Computes, on the grid "time",
 
-            t_out[k] = t[0] + t[0] + k*dt = 2*t[0] + k*dt
+            out[m] = Sum_j signal[j] * IRF(time[m] - time[j] - t0) * dt
 
-        Since both signal and irf are evaluated on the same time grid t,
-        starting at t[0] = t_min < 0.
+        The IRF enters as a function of the time difference dt*(m - j),
+        It is evaluated on that grid of differences.
 
-        We want to extract the window corresponding to the original time grid
-        [t_min, t_max], which starts at index k where:
+            (arange(len(time)) - zero_point_index) * dt - t0
 
-            2*t_min + k*dt = t_min  =>  k = -t_min/dt = |t_min|/dt
+        zero_point_index = round(-time[0] / dt) locates t = 0 on the grid. It
+        serves twice, and must be the same index in both: it fixes the zero of
+        the IRF grid, and it is the offset at which the np.convolve output is
+        sliced back onto "time",
 
-        This is exactly zero_point_index — the number of samples before t=0
-        in the time array. The slicing:
+            [zero_point_index : len(time) + zero_point_index]
 
-            [zero_point_index : len(t) + zero_point_index]
-
-        therefore correctly maps the convolution output back onto t,
-        independent of IRF shape or centering.
-
-        The * dt factor converts the discrete sum into a proper approximation
-        of the continuous convolution integral.
 
         Parameters
         ----------
         signal : np.ndarray
             Ideal physical signal before detector response distortion.
-        t : np.ndarray
-            Time grid corresponding to signal discretization.
+        time : np.ndarray
+            Uniformly spaced time grid corresponding to signal discretization.
+        t0 : float
+            Time-zero shift of the resolution; the IRF is displaced by t0.
+            Default 0.
 
         Returns
         -------
         np.ndarray
-            Convolved signal on the same time grid t, scaled by dt.
+            Convolved signal on the same time grid ``time``, scaled by dt.
 
         Notes
         -----
-        - Assumes uniform time spacing dt = t[1] - t[0].
-        - t must span negative to positive values with t[0] < 0 < t[-1].
+        - Assumes uniform time spacing dt = time[1] - time[0].
+        - time must span zero: time[0] <= 0 <= time[-1].
+        - The IRF must be resolved by the grid and decay inside it.
         """
-        irf = self.evaluate(t)
-        dt = t[1] - t[0]
+        dt = time[1] - time[0]
+        zero_point_index = int(round(-time[0] / dt))
 
-        zero_point_index = np.where(t>0)[0][0]
+        irf = self.evaluate((np.arange(len(time)) - zero_point_index) * dt - t0)
 
-        return np.convolve(signal, irf, mode="full")[zero_point_index:len(t)+zero_point_index] * dt
+        return np.convolve(signal, irf, mode="full")[zero_point_index:len(time)+zero_point_index] * dt
 
 
 class MeasuredRF(TimeResolution):
@@ -130,17 +111,9 @@ class MeasuredRF(TimeResolution):
     spectrum : Spectrum
         Spectroscopy spectrum container holding detector response counts.
 
-    Methods
-    -------
-    evaluate(t: np.ndarray) -> np.ndarray
-        Returns normalized detector response counts.
-
-    convolve(signal: np.ndarray, time: np.ndarray) -> np.ndarray
-        Performs numpy convolution between physical signal and RF.
-
     Notes
     -----
-    - The spectrum counts are normalized to unit integral.
+    - The spectrum counts are normalized to sum 1 on the measured grid.
     """
     def __init__(self, spectrum: Spectrum):
         self.spectrum = spectrum
@@ -148,19 +121,24 @@ class MeasuredRF(TimeResolution):
 
     def evaluate(self, time: np.ndarray) -> np.ndarray:
         """
-        Evaluate multi-Gaussian resolution function.
+        Interpolate the measured resolution function onto the given time grid.
+        Values outside the measured support are 0.
 
         Parameters
         ----------
         time : np.ndarray
-         Time axis.
+            Time axis to evaluate on.
 
         Returns
         -------
         np.ndarray
-            Normalized resolution function.
+            Resolution function values at ``time``.
         """
-        return self.spectrum.counts
+        return np.asarray(np.interp(time,
+                                    self.spectrum.energy.values,
+                                    self.spectrum.counts,
+                                    left=0.0,
+                                    right=0.0))
 
 
 class MultiGaussianRF(TimeResolution):
@@ -215,7 +193,6 @@ class MultiGaussianRF(TimeResolution):
         np.ndarray
             Normalized resolution function.
         """
-        irf = np.zeros_like(time, dtype=float)
         sigma = np.vstack(self.sigmas)
         weight = np.vstack(self.weights)
         t_center = np.vstack(self.t0)
