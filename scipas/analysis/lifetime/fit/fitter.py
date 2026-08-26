@@ -1,105 +1,181 @@
 import numpy as np
+import xarray as xr
 from scipy.optimize import least_squares
-
+from typing import Sequence
+from scipas.analysis.lifetime.fit.intensities import solve_intensities
+from scipas.analysis.lifetime.fit.result import FitResult, OptimizerOutput
 from scipas.core.lifetime import PASLifetime
-from scipas.model.lifetime import LifetimeModel
+from scipas.analysis.lifetime.generator import _convolved_decay
 from scipas.analysis.lifetime.fit.parameters import FitParameter, ParameterMap
-from scipas.analysis.lifetime.fit.result import FitResult
-
+from warnings import warn
+from typing import Literal
 
 class LifetimeFitter:
     """
     Discrete multi-exponential lifetime spectrum fitter.
 
     Fits the model:
-        N(t) = IRF(t) ⊗ [Σ_i (I_i / τ_i) · exp(-(t - t0) / τ_i) · H(t - t0)] + bg
+        N(t) = T * dt * (IRF(t) X [Σ_i (I_i / τ_i) · exp(-(t - t0) / τ_i) · H(t - t0)]) + bg
 
-    Each parameter (τ_i, I_i, t0, background) can be individually set as
-    free (with optional bounds) or fixed to a specific value.
+    with T = Σ counts − bg · M pinned to the measured spectrum and X convolution on time.
 
-    Intensities are constrained to sum to 1: the last non-fixed intensity
-    is computed as 1 - sum(all others) and is not an independent fit parameter.
-
-    Uses scipy.optimize.least_squares (Levenberg-Marquardt or Trust Region
-    Reflective) for Jacobian-based covariance estimation.
+    The fit is separable to the intensities and the nonlinear parameters.
+    Because of this, only the nonlinear parameters (τ_i, t0, background)
+    reach the optimizer; each of the nonlinear parameters can be free, bounded, or fixed.
+    The model is linear in the intensities, so for every nonlinear trial they are recovered
+    by a NNLS solver against the data rather than being searched over.
+    Currently, there aren't constraints on the intensities, but it will be added in later version.
     """
 
-    def _forward_model(self, time, lt_vals, I_vals, t0_val, bg_val,
-                        resolution, total_signal):
+    def estimate_cov(self, lsq_result, pmap):
         """
-        Compute the predicted counts per bin.
+        Function extract the jacobian from scipy.optimize.least_squares results,
+        and calculate the covariance matrix.
+        The covariance is calculated according to the approximation done in gauss-newton optimization method -
+         Hessian = J.T @ J
+        Parameters
+        ----------
+        lsq_result
+        pmap
 
-        Model: N(t_i) = total_signal * dt * shape(t_i) + bg_val
-
-        where shape(t) = IRF ⊗ Σ (I_i/τ_i) exp(-(t-t0)/τ_i), normalized
-        so that ∫ shape dt = 1.
-
-        The time-zero shift t0 is applied to the *convolved* shape by
-        interpolation rather than by truncating the decay support to the
-        grid. Convolving the decay with an IRF shifted by t0 is exactly
-        equivalent to shifting the whole convolved shape by t0, so this is
-        physically identical — but it keeps the model smooth (and therefore
-        differentiable) in t0. Truncating the support at `time >= t0_val`
-        instead quantizes the rising edge to the grid spacing, which zeroes
-        out the finite-difference Jacobian column for t0 and stalls the fit.
+        Returns
+        -------
+        covariance_matrix np.ndarray
         """
-        decay = np.zeros_like(time, dtype=float)
-        mask = time >= 0.0
-        t_nonneg = time[mask]
+        # Covariance from Jacobian
+        try:
+            J = lsq_result.jac
+            Hessian = J.T @ J
 
-        for tau, intensity in zip(lt_vals, I_vals):
-            decay[mask] += (intensity / tau) * np.exp(-t_nonneg / tau)
+            cov = np.linalg.pinv(Hessian, hermitian=True)
 
-        convolved = resolution.convolve(decay, time)
-        norm = np.trapezoid(convolved, time)
-        if norm > 0:
-            convolved = convolved / norm
+        except np.linalg.LinAlgError:
+            cov = np.full((pmap.n_free, pmap.n_free), np.inf)
+            warn("Covariance of the parameters could not be estimated")
+        return cov
 
-        if t0_val != 0.0:
-            convolved = np.interp(time - t0_val, time, convolved,
-                                  left=0.0, right=0.0)
-
-        dt = time[1] - time[0]
-        return total_signal * dt * convolved + bg_val
-
-    def fit(self,
-            pals: PASLifetime,
-            lifetimes: list[FitParameter],
-            intensities: list[FitParameter],
-            t0: FitParameter = None,
-            background: FitParameter = None,
-            method: str = "trf",
-            ) -> FitResult:
+    def residuals(self,
+                  parms: np.ndarray,
+                  pmap: ParameterMap,
+                  pals,
+                  sigma)->np.ndarray:
         """
-        Fit a discrete multi-exponential model to a lifetime spectrum.
+        Poisson-weighted residual of one nonlinear trial.
+
+        Unpacks "parms" onto the full slot layout, solves the intensities at
+        those values using nnls optimization and evaluates the lifetime model on the time grid.
+        Finally, the function returns "(counts - model) / sigma".
 
         Parameters
         ----------
+        parms : np.ndarray
+            Free nonlinear parameters, in the order "pmap" packs them.
+        pmap : ParameterMap
+            Slot layout supplying the fixed values and the free mask.
         pals : PASLifetime
-            Measured lifetime spectrum with resolution function.
-        lifetimes : list of FitParameter
-            Initial guesses / fixed values for each lifetime component τ_i.
-            Physical default bounds: (0, ∞).
-        intensities : list of FitParameter
-            Initial guesses / fixed values for each intensity I_i.
-            The last non-fixed intensity is computed as 1 - sum(others).
-            Physical default bounds: [0, 1].
-        t0 : FitParameter, optional
-            Time-zero parameter. Default: FitParameter(0.0).
-        background : FitParameter, optional
-            Background level (counts per bin). Default: FitParameter(0.0, lower=0.0).
-        method : str
-            Optimization method for least_squares. Default "trf" (Trust Region
-            Reflective, supports bounds). Use "lm" for Levenberg-Marquardt
-            (no bounds support).
+            Measured spectrum.
+        sigma : np.ndarray
+            Per-bin standard deviation, "sqrt(max(counts, 1))".
+
+        Returns
+        -------
+        np.ndarray
+            Weighted residual, one entry per bin.
+        """
+        dt = pals.lifetime.energy.values[1] - pals.lifetime.energy.values[0]
+        lt_vals, t0_val, bg_val = pmap.unpack(parms)
+        I_vals = solve_intensities(pals=pals,
+                                   taus=lt_vals,
+                                   t0=t0_val,
+                                   background=bg_val)
+        total_counts = pals.lifetime.counts.sum() - bg_val * len(pals.lifetime.counts)
+        predicted_signal = total_counts*dt*_convolved_decay(time=pals.lifetime.energy.values,
+                                                         lifetimes=lt_vals,
+                                                         intensities=I_vals,
+                                                         t0=t0_val,
+                                                         resolution=pals.resolution)
+        predicted_signal += bg_val
+        return (pals.lifetime.counts - predicted_signal) / sigma
+
+    def _build_result(self, pmap, pals, lsq_result, cov_free) -> FitResult:
+        """
+        Assemble a FitResult from the optimizer output.
+
+        Values and covariance are expanded onto the full slot layout, so fixed
+        parameters appear with the value they were fixed to and a zero row and
+        column in the covariance.
+
+        Parameters
+        ----------
+        pmap : ParameterMap
+            Slot layout of the fit; supplies the parameter names and free mask.
+        pals : PASLifetime
+            Spectrum that was fitted.
+        lsq_result : scipy.optimize.OptimizeResult
+            Return value of "least_squares".
+        cov_free : np.ndarray
+            Covariance of the free parameters, shape "(n_free, n_free)".
 
         Returns
         -------
         FitResult
         """
-        if len(lifetimes) != len(intensities):
-            raise ValueError("lifetimes and intensities must have the same length")
-        if len(lifetimes) == 0:
+        names = pmap.parameter_names
+
+        popt = xr.DataArray(pmap.full_vector(lsq_result.x),
+                            dims="parameter",
+                            coords={"parameter": names})
+        pcov = xr.DataArray(pmap.embed_covariance(cov_free),
+                            dims=("parameter", "parameter0"),
+                            coords={"parameter": names, "parameter0": names})
+        free = xr.DataArray(pmap.free_mask.copy(),
+                            dims="parameter",
+                            coords={"parameter": names})
+
+        optimizer = OptimizerOutput(success=bool(lsq_result.success),
+                                    status=int(lsq_result.status),
+                                    message=str(lsq_result.message),
+                                    nfev=int(lsq_result.nfev))
+
+        return FitResult(popt=popt, pcov=pcov, free=free, pals=pals,
+                         optimizer=optimizer)
+
+    def fit(self,
+            pals: PASLifetime,
+            lifetime_components: Sequence[FitParameter],
+            t0: FitParameter | None = None,
+            background: FitParameter | None = None,
+            method: Literal["trf", "dogbox"] = "trf",
+            ) -> FitResult:
+        """
+        Fit a discrete multi-exponential model to a lifetime spectrum.
+        Note that Intensities are not given as a parameter, they are solved for.
+        The function will support constraints on the intensities in the future.
+        Parameters
+        ----------
+        pals : PASLifetime
+            Measured lifetime spectrum with resolution function.
+        lifetime_components : list of FitParameter
+            One per component, holding the lifetime parameter, its initial
+            guess, and its value if fixed. Bounded below by 1 ps.
+        t0 : FitParameter, optional
+            Time-zero parameter. .
+        background : FitParameter, optional
+            Background level (counts per bin). Default: FitParameter(0.0, lower=0.0).
+        method : str
+            Optimization method for least_squares. Default "trf" (Trust Region
+            Reflective, supports bounds).
+
+        Returns
+        -------
+        FitResult
+            Best-fit values and covariance of the charectaristic lifetime, t0 and background.
+             The object holds the spectrum that was fitted and the
+            optimizer outcome.
+             Furthermore, the object is used to calculate the intensities with "opt_parameters",
+              and parameters can be drawned randomly from the fit results with "sample".
+        """
+        if len(lifetime_components) == 0:
             raise ValueError("At least one component is required")
 
         if t0 is None:
@@ -107,88 +183,21 @@ class LifetimeFitter:
         if background is None:
             background = FitParameter(0.0, lower=0.0)
 
-        for lp in lifetimes:
-            if lp.lower == -np.inf:
-                lp.lower = 1e-10
-            if lp.upper == np.inf:
-                lp.upper = 1e6
-        for ip in intensities:
-            if ip.lower == -np.inf:
-                ip.lower = 0.0
-            if ip.upper == np.inf:
-                ip.upper = 1.0
+        sigma = np.sqrt(np.maximum(pals.lifetime.counts, 1.0))
+        pmap = ParameterMap(lifetime_components, t0, background)
 
-        time = pals.lifetime.energy.values
-        counts = pals.lifetime.counts
-        sigma = np.sqrt(np.maximum(counts, 1.0))
-
-        pmap = ParameterMap(lifetimes, intensities, t0, background)
         if pmap.n_free == 0:
             raise ValueError("No free parameters — nothing to fit")
 
-        def residual_fn(x):
-            lt_vals, I_vals, t0_val, bg_val = pmap.unpack(x)
-            total_signal = counts.sum() - bg_val * len(counts)
-            predicted = self._forward_model(
-                time, lt_vals, I_vals, t0_val, bg_val,
-                pals.resolution, total_signal
-            )
-            return (counts - predicted) / sigma
+        # noinspection PyTypeChecker
+        result = least_squares(self.residuals,
+                               pmap.initial_vector(),
+                               bounds=(pmap.bounds_lower, pmap.bounds_upper),
+                               args=(pmap, pals, sigma),
+                               method=method,
+                               max_nfev=10000)
 
-        result = least_squares(
-            residual_fn, pmap.initial_vector(),
-            bounds=(pmap.bounds_lower, pmap.bounds_upper),
-            method=method,
-            max_nfev=10000,
-        )
+        cov = self.estimate_cov(lsq_result=result, pmap=pmap)
 
-        lt_fit, I_fit, t0_fit, bg_fit = pmap.unpack(result.x)
-        total_signal_fit = counts.sum() - bg_fit * len(counts)
-        fitted_total = self._forward_model(
-            time, lt_fit, I_fit, t0_fit, bg_fit,
-            pals.resolution, total_signal_fit
-        )
-
-        chi2 = np.sum(((counts - fitted_total) / sigma) ** 2)
-        dof = len(counts) - pmap.n_free
-        reduced_chi2 = chi2 / dof if dof > 0 else np.inf
-
-        # Covariance from Jacobian
-        try:
-            J = result.jac
-            JtJ = J.T @ J
-            cov = np.linalg.inv(JtJ) * reduced_chi2
-        except np.linalg.LinAlgError:
-            cov = np.full((pmap.n_free, pmap.n_free), np.nan)
-
-        param_errors = {}
-        for i, name in enumerate(pmap.free_names):
-            param_errors[name] = np.sqrt(max(cov[i, i], 0.0))
-
-        I_fit_clipped = np.maximum(I_fit, 0.0)
-        I_sum = I_fit_clipped.sum()
-        if I_sum > 0:
-            I_fit_clipped = I_fit_clipped / I_sum
-
-        fitted_model = LifetimeModel(
-            name="fit",
-            lifetimes=lt_fit,
-            intensities=I_fit_clipped,
-        )
-
-        weighted_residuals = (counts - fitted_total) / sigma
-
-        return FitResult(
-            model=fitted_model,
-            t0=t0_fit,
-            background=bg_fit,
-            chi_squared=chi2,
-            reduced_chi_squared=reduced_chi2,
-            n_free=pmap.n_free,
-            covariance=cov,
-            parameter_errors=param_errors,
-            fitted_spectrum=fitted_total,
-            residuals=weighted_residuals,
-            success=result.success,
-            message=result.message,
-        )
+        return self._build_result(pmap=pmap, pals=pals, lsq_result=result,
+                                  cov_free=cov)
