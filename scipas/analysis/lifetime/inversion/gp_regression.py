@@ -167,7 +167,7 @@ class GPRegression(LifetimeInvert):
         counts_var = np.maximum(raw_counts, 1.0)
 
         RM = self._build_rm(pals, t0_shift)
-
+        # assuming flat prior
         prior_mean = np.full(n_tau, np.log(1.0 / n_tau))
         log_N0 = np.log(max(net_counts.sum(), 1.0))
 

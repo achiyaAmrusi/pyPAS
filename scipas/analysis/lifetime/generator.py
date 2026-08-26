@@ -64,6 +64,34 @@ def generate_analytical_lt_spectrum(
     """
     Generate a normalized positron lifetime spectrum on a given time grid
     using a discrete exponential model convolved with the resolution function.
+
+    The counts are a density: each bin holds the mean of the decay over that
+    bin, so "dt * sum(counts)" is 1 up to the tail the window truncates,
+    "Sum_i I_i exp(-T_end/tau_i)". Multiply by "dt * num_events" for counts
+    per bin.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Uniformly spaced time grid in ns, strictly increasing and spanning
+        time[0] < 0 < time[-1].
+    model : LifetimeModel
+        Lifetimes and intensities of the components. The model normalizes the
+        intensities to sum 1 on construction.
+    resolution : TimeResolution
+        Instrument response function convolved with the decay.
+    t0 : float
+        Time-zero in ns, applied through the resolution.
+
+    Returns
+    -------
+    PASLifetime
+        Density on "time", carrying "resolution".
+
+    Raises
+    ------
+    ValueError
+        If "time" is not 1D, or is not strictly increasing.
     """
 
     if time.ndim != 1:
@@ -89,19 +117,52 @@ def generate_random_lt_spectrum(
         time: np.ndarray,
         model: LifetimeModel,
         resolution: TimeResolution,
-        t0 = 0,
+        t0: float = 0,
         num_events: int = 1_000_000,
+        rng=None,
 ) -> PASLifetime:
     """
     Generate a Poisson-sampled positron lifetime spectrum on a given time grid
     using a discrete exponential model convolved with the resolution function.
+
+    Each bin is drawn from "Poisson(dt * num_events * density)", with the
+    density from "generate_analytical_lt_spectrum".
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Uniformly spaced time grid in ns, strictly increasing and spanning
+        time[0] < 0 < time[-1].
+    model : LifetimeModel
+        Lifetimes and intensities of the components.
+    resolution : TimeResolution
+        Instrument response function convolved with the decay.
+    t0 : float
+        Time-zero in ns, applied through the resolution.
+    num_events : int
+        Expected total number of events before the window truncates the tail.
+        Default 1_000_000.
+    rng : int or np.random.Generator, optional
+        Seed or generator, for reproducible draws. Default None, which draws
+        from a fresh unseeded generator.
+
+    Returns
+    -------
+    PASLifetime
+        Counts per bin on "time", carrying "resolution".
+
+    Raises
+    ------
+    ValueError
+        If "time" is not 1D, or is not strictly increasing.
     """
     dt = time[1] - time[0]
+    generator = np.random.default_rng(rng)
     analytical = generate_analytical_lt_spectrum(time=time,
                                                  model=model,
                                                  resolution=resolution,
                                                  t0=t0)
-    measured = np.random.poisson(analytical.lifetime.counts * dt * num_events).astype(float)
+    measured = generator.poisson(analytical.lifetime.counts * dt * num_events).astype(float)
 
     spectrum = Spectrum(
         counts=measured,

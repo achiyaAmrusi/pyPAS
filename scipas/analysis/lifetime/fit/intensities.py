@@ -57,13 +57,13 @@ def solve_intensities(pals: PASLifetime, lifetime_components: np.ndarray, t0: fl
 
     For fixed "(taus, t0, background)" the model is linear in the intensities:
 
-        counts_k ~ background +  I_i * [dt * T * A_i(t_k)],   T =  counts − background·M
+        counts_k ~ background +  I_i * [dt * T * A_i(t_k)],   T =  counts - background*M
 
     where "A_i" is the unit-intensity IRF-convolved decay density for "tau_i",
     "dt" the bin width and "M" the number of bins. Scaling the columns by
     "dt*T" makes the solved coefficients the intensities themselves, so they
     sum to ~ 1 without the sum rule being imposed. The solver is NNLS, which
-    keeps I >= 0. Data rows carry Poisson weights "1/std".
+    keeps I >= 0. Data rows carry Neyman weights "1/std".
 
     Parameters
     ----------

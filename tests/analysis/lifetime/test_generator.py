@@ -25,11 +25,23 @@ def test_analytical_returns_pas_lifetime(setup):
     assert result.lifetime.counts.shape == time.shape
 
 
+def _truncated_integral(model, time):
+    """Analytic integral of the density over the window the grid covers.
+
+    Bin k spans [time[k], time[k] + dt), so the window ends at time[-1] + dt and
+    the decay beyond it is outside the spectrum: the density integrates to
+    "Sum_i I_i (1 - exp(-T/tau_i))", not to 1.
+    """
+    dt = time[1] - time[0]
+    end = time[-1] + dt
+    return float(np.sum(model.intensities * -np.expm1(-end / model.lifetimes)))
+
+
 def test_analytical_normalized_to_one(setup):
     time, irf, model = setup
     result = generate_analytical_lt_spectrum(time, model, irf)
     integral = np.trapezoid(result.lifetime.counts, time)
-    assert abs(integral - 1.0) < 1e-6
+    assert abs(integral - _truncated_integral(model, time)) < 1e-4
 
 
 def test_analytical_non_negative(setup):
@@ -48,17 +60,15 @@ def test_analytical_peak_after_t0(setup):
 
 def test_random_total_counts(setup):
     time, irf, model = setup
-    np.random.seed(123)
     num_events = 500_000
-    result = generate_random_lt_spectrum(time, model, irf, num_events=num_events)
+    result = generate_random_lt_spectrum(time, model, irf, num_events=num_events, rng=123)
     total = result.lifetime.counts.sum()
     assert abs(total - num_events) / num_events < 0.02
 
 
 def test_random_is_poisson(setup):
     time, irf, model = setup
-    np.random.seed(456)
-    result = generate_random_lt_spectrum(time, model, irf, num_events=1_000_000)
+    result = generate_random_lt_spectrum(time, model, irf, num_events=1_000_000, rng=456)
     counts = result.lifetime.counts
     assert np.all(counts >= 0)
     assert counts.dtype == np.float64
@@ -77,7 +87,7 @@ def test_single_component(setup):
     model = LifetimeModel("single", lifetimes=[1.0], intensities=[1.0])
     result = generate_analytical_lt_spectrum(time, model, irf)
     integral = np.trapezoid(result.lifetime.counts, time)
-    assert abs(integral - 1.0) < 1e-6
+    assert abs(integral - _truncated_integral(model, time)) < 1e-5
 
 
 def test_invalid_time_raises():

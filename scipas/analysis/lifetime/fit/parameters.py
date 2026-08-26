@@ -77,7 +77,7 @@ class ParameterMap:
     Attributes
     ----------
     parameter_names : list of str
-        "["tau_0", ..., "t0", "background"]" — labels for the slots. Components
+        "["tau_0", ..., "t0", "background"]" - labels for the slots. Components
         are identified by index; they carry no user-facing name.
     free_mask : np.ndarray of bool
         Length "n + 2" mask over the slots. True where free.

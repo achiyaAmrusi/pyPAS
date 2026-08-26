@@ -15,16 +15,28 @@ class LifetimeFitter:
     Discrete multi-exponential lifetime spectrum fitter.
 
     Fits the model:
-        N(t) = T * dt * (IRF(t) X [Σ_i (I_i / τ_i) · exp(-(t - t0) / τ_i) · H(t - t0)]) + bg
+        N(t) = T * dt * (IRF(t - t0) X [Sum_i (I_i / tau_i) * exp(-t / tau_i) * H(t)]) + bg
 
-    with T = Σ counts − bg · M pinned to the measured spectrum and X convolution on time.
+    with T = Sum counts - bg * M pinned to the measured spectrum and X convolution on time.
 
     The fit is separable to the intensities and the nonlinear parameters.
-    Because of this, only the nonlinear parameters (τ_i, t0, background)
+    Because of this, only the nonlinear parameters (tau_i, t0, background)
     reach the optimizer; each of the nonlinear parameters can be free, bounded, or fixed.
     The model is linear in the intensities, so for every nonlinear trial they are recovered
     by a NNLS solver against the data rather than being searched over.
-    Currently, there aren't constraints on the intensities, but it will be added in later version.
+
+    Notes
+    -----
+    Residuals are Neyman-weighted: divided by "sqrt(max(observed-counts, 1))".
+    The weights are therefore constants of the data rather than functions of the parameters,
+    which is what allows the intensities to be recovered by a single linear NNLS solve
+    and keeps the fit separable.
+    The known cost is a downward bias of about one count on a level parameter.
+    It lands on the background, which is fixed by the low-count tail where the
+    weighting distorts most, and leaves the lifetimes and t0 effectively
+    unchanged.
+    A background parameter that must be free of this bias may be measured outside
+    the fit and passed fixed or bounded.
     """
 
     def estimate_cov(self, lsq_result, pmap):
@@ -33,21 +45,40 @@ class LifetimeFitter:
         and calculate the covariance matrix.
         The covariance is calculated according to the approximation done in gauss-newton optimization method -
          Hessian = J.T @ J
+        The inverse is taken from the singular value decomposition of J rather than
+        by forming J.T @ J, whose condition number is the square of J's. Singular
+        values below "eps * s[0]" are dropped, so a rank-deficient
+        Jacobian yields a pseudo-inverse instead of raising.
         Parameters
         ----------
-        lsq_result
-        pmap
+        lsq_result : scipy.optimize.OptimizeResult
+            Return value of "least_squares"; supplies the Jacobian at the optimum.
+        pmap : ParameterMap
+            Slot layout, used only for the shape of the fallback returned when
+            the decomposition fails.
 
         Returns
         -------
         covariance_matrix np.ndarray
+            Covariance of the free parameters, shape "(n_free, n_free)". All
+            entries are inf if the Jacobian carries no usable information.
+
+        Warns
+        -----
+        UserWarning
+            When the covariance could not be estimated and inf is returned.
         """
         # Covariance from Jacobian
         try:
             J = lsq_result.jac
-            Hessian = J.T @ J
+            # SVD of J itself: forming J.T @ J squares the condition number
+            _, singular_values, vt = np.linalg.svd(J, full_matrices=False)
+            keep = singular_values > np.finfo(float).eps * singular_values[0]
+            singular_values, vt = singular_values[keep], vt[keep]
+            if singular_values.size == 0:
+                raise np.linalg.LinAlgError("Jacobian has no significant singular values")
 
-            cov = np.linalg.pinv(Hessian, hermitian=True)
+            cov = (vt.T / singular_values ** 2) @ vt
 
         except np.linalg.LinAlgError:
             cov = np.full((pmap.n_free, pmap.n_free), np.inf)
@@ -60,7 +91,7 @@ class LifetimeFitter:
                   pals,
                   sigma)->np.ndarray:
         """
-        Poisson-weighted residual of one nonlinear trial.
+        Neyman-weighted residual of one nonlinear trial.
 
         Unpacks "parms" onto the full slot layout, solves the intensities at
         those values using nnls optimization and evaluates the lifetime model on the time grid.
@@ -85,7 +116,7 @@ class LifetimeFitter:
         dt = pals.lifetime.energy.values[1] - pals.lifetime.energy.values[0]
         lt_vals, t0_val, bg_val = pmap.unpack(parms)
         I_vals = solve_intensities(pals=pals,
-                                   taus=lt_vals,
+                                   lifetime_components=lt_vals,
                                    t0=t0_val,
                                    background=bg_val)
         total_counts = pals.lifetime.counts.sum() - bg_val * len(pals.lifetime.counts)
@@ -150,7 +181,6 @@ class LifetimeFitter:
         """
         Fit a discrete multi-exponential model to a lifetime spectrum.
         Note that Intensities are not given as a parameter, they are solved for.
-        The function will support constraints on the intensities in the future.
         Parameters
         ----------
         pals : PASLifetime
@@ -159,7 +189,8 @@ class LifetimeFitter:
             One per component, holding the lifetime parameter, its initial
             guess, and its value if fixed. Bounded below by 1 ps.
         t0 : FitParameter, optional
-            Time-zero parameter. .
+            Time-zero, in ns, applied through the resolution.
+            Default: FitParameter(0.0), free and unbounded.
         background : FitParameter, optional
             Background level (counts per bin). Default: FitParameter(0.0, lower=0.0).
         method : str
@@ -169,11 +200,20 @@ class LifetimeFitter:
         Returns
         -------
         FitResult
-            Best-fit values and covariance of the charectaristic lifetime, t0 and background.
+            Best-fit values and covariance of the characteristic lifetime, t0 and background.
              The object holds the spectrum that was fitted and the
             optimizer outcome.
              Furthermore, the object is used to calculate the intensities with "opt_parameters",
-              and parameters can be drawned randomly from the fit results with "sample".
+              and parameters can be drawn randomly from the fit results with "sample".
+
+        Raises
+        ------
+        ValueError
+            If "lifetime_components" is empty, if every parameter is fixed so
+            there is nothing to optimize, or if any initial value lies outside
+            its own bounds. The last case includes a lifetime below the 1 ps
+            floor, since the bounds are clamped to that floor before the value
+            is checked against them.
         """
         if len(lifetime_components) == 0:
             raise ValueError("At least one component is required")
@@ -187,7 +227,7 @@ class LifetimeFitter:
         pmap = ParameterMap(lifetime_components, t0, background)
 
         if pmap.n_free == 0:
-            raise ValueError("No free parameters — nothing to fit")
+            raise ValueError("No free parameters - nothing to fit")
 
         # noinspection PyTypeChecker
         result = least_squares(self.residuals,

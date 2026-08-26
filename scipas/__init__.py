@@ -26,6 +26,6 @@ from scipas.analysis import (DiffusionLengthOptimization, compute_s_lineshape, c
 # Lifetime analysis
 from scipas.analysis.lifetime import (
     generate_analytical_lt_spectrum, generate_random_lt_spectrum,
-    LifetimeFitter, FitParameter, FitResult,
+    LifetimeFitter, FitParameter,
     TikhonovRegularization, MaximalEntropyInversion, GPRegression,
 )

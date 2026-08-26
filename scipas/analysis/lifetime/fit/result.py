@@ -108,7 +108,7 @@ class FitResult:
         Evaluate the model on the measured time grid.
 
         The model is "T * dt * decay + background" with
-        "T = counts − background * M", the same expression the optimizer
+        "T = counts - background * M", the same expression the optimizer
         minimised against, so the returned spectrum is directly comparable with
         "self.pals".
 
@@ -173,7 +173,7 @@ class FitResult:
         Returns
         -------
         tuple
-            "(intensities, rejected)" — the draw and how many were discarded.
+            "(intensities, rejected)" - the draw and how many were discarded.
         """
         taus, t0, background = self._split(nonlinear)
         centre, intensity_fit_cov = solve_intensities_with_covariance(
@@ -193,7 +193,7 @@ class FitResult:
         "N(popt, pcov)"; the intensities are then solved at those parameters and
         drawn from "N(I, cov(I|tau))". Sampling the second stage rather than
         taking the solved intensities is what carries the Poisson noise of the
-        linear solve — without it the spread would hold only the part induced by
+        linear solve. Without it the spread would hold only the part induced by
         the lifetime uncertainty. Together the two stages realize
 
             cov(I) = E[cov(I|tau)] + cov(E[I|tau])

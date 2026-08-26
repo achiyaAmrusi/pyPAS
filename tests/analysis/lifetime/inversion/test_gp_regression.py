@@ -10,7 +10,6 @@ from scispectrum import Spectrum
 
 @pytest.fixture
 def synthetic_pals():
-    np.random.seed(42)
     time = np.arange(-2, 15, 0.025)
     sigma = np.array([0.230 / (2 * np.sqrt(2 * np.log(2)))])
     irf = MultiGaussianRF(sigma, np.ones_like(sigma), np.zeros_like(sigma))
@@ -23,7 +22,7 @@ def synthetic_pals():
 
     model = LifetimeModel("test", lifetimes=tau_grid_fine, intensities=intensities)
     bg = 50.0
-    r = generate_random_lt_spectrum(time, model, irf, num_events=1_000_000)
+    r = generate_random_lt_spectrum(time, model, irf, num_events=1_000_000, rng=42)
     pals = PASLifetime(
         lifetime=Spectrum(counts=r.lifetime.counts + bg, axis_calib=r.lifetime.axis_calib),
         resolution=irf,
