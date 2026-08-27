@@ -23,7 +23,7 @@ def synthetic_pals():
 
     model = LifetimeModel("test", lifetimes=tau_grid_fine, intensities=intensities)
     bg = 50.0
-    r = generate_random_lt_spectrum(time, model, irf, num_events=1_000_000, rng=42)
+    r = generate_random_lt_spectrum(time, model, irf, num_events=1_000_000, rng=1)
     pals = PASLifetime(
         lifetime=Spectrum(counts=r.lifetime.counts + bg, axis_calib=r.lifetime.axis_calib),
         resolution=irf,

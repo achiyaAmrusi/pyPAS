@@ -61,14 +61,14 @@ def test_analytical_peak_after_t0(setup):
 def test_random_total_counts(setup):
     time, irf, model = setup
     num_events = 500_000
-    result = generate_random_lt_spectrum(time, model, irf, num_events=num_events, rng=123)
+    result = generate_random_lt_spectrum(time, model, irf, num_events=num_events, rng=1)
     total = result.lifetime.counts.sum()
     assert abs(total - num_events) / num_events < 0.02
 
 
 def test_random_is_poisson(setup):
     time, irf, model = setup
-    result = generate_random_lt_spectrum(time, model, irf, num_events=1_000_000, rng=456)
+    result = generate_random_lt_spectrum(time, model, irf, num_events=1_000_000, rng=1)
     counts = result.lifetime.counts
     assert np.all(counts >= 0)
     assert counts.dtype == np.float64
