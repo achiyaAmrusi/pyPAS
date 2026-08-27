@@ -2,6 +2,8 @@ from scispectrum import Spectrum
 from abc import ABC, abstractmethod
 import numpy as np
 
+TIME_AXIS_NAME = "time"
+
 class TimeResolution(ABC):
     """
     Abstract base class for time-domain resolution (instrument response) modeling.
@@ -109,13 +111,32 @@ class MeasuredRF(TimeResolution):
     Parameters
     ----------
     spectrum : Spectrum
-        Spectroscopy spectrum container holding detector response counts.
+        Spectroscopy spectrum container holding detector response counts. Its
+        axis must be calibrated to time, i.e. carry the axis name "time"
+        (TIME_AXIS_NAME), in ns.
+
+    Raises
+    ------
+    ValueError
+        If the spectrum axis is not named "time". The axis name is the only
+        record of what the axis measures, so a response measured against an
+        energy axis is rejected here rather than being convolved as if it
+        were time.
 
     Notes
     -----
     - The spectrum counts are normalized to sum 1 on the measured grid.
+    - Read the axis values as "self.spectrum.axis"; that attribute does not
+      depend on the axis name.
     """
     def __init__(self, spectrum: Spectrum):
+        if spectrum.axis_name != TIME_AXIS_NAME:
+            raise ValueError(
+                f"The resolution spectrum axis is named '{spectrum.axis_name}', "
+                f"expected '{TIME_AXIS_NAME}'. Calibrate it with "
+                f"AxisCalibration(..., name='{TIME_AXIS_NAME}') so the axis "
+                f"states that it measures time."
+            )
         self.spectrum = spectrum
         self.spectrum.counts = self.spectrum.counts/self.spectrum.counts.sum()
 
@@ -135,7 +156,7 @@ class MeasuredRF(TimeResolution):
             Resolution function values at ``time``.
         """
         return np.asarray(np.interp(time,
-                                    self.spectrum.energy.values,
+                                    self.spectrum.axis,
                                     self.spectrum.counts,
                                     left=0.0,
                                     right=0.0))

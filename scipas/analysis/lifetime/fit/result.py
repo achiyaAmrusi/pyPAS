@@ -142,7 +142,7 @@ class FitResult:
                 f"{lifetimes.size} and {intensities.size}")
 
         counts = self.pals.lifetime.counts
-        time = self.pals.lifetime.energy.values
+        time = self.pals.lifetime.axis
         dt = time[1] - time[0]
         total = counts.sum() - float(background) * len(counts)
 

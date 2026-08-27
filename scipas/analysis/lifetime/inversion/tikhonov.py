@@ -127,11 +127,11 @@ class TikhonovRegularization(LifetimeInvert):
 
         counts = pals.lifetime.counts
         net_counts = counts - bg_est
-        norm = np.trapezoid(net_counts, pals.lifetime.energy)
+        norm = np.trapezoid(net_counts, pals.lifetime.axis)
         data = net_counts / norm
         data_err = np.sqrt(np.maximum(counts, 1)) / norm
 
-        time_values = pals.lifetime.energy.values - t0_shift
+        time_values = pals.lifetime.axis - t0_shift
         response = _response_matrix(
             self.characteristic_time_grid,
             time_values,

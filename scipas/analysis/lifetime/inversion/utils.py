@@ -71,7 +71,7 @@ def t0_scan(inverter, pals: PASLifetime, t0_values: np.ndarray,
     bg_est = invert_kwargs.get("bg_est", 0.0)
     counts = pals.lifetime.counts
     net_counts = counts - bg_est
-    norm = np.trapezoid(net_counts, pals.lifetime.energy)
+    norm = np.trapezoid(net_counts, pals.lifetime.axis)
     data = net_counts / norm
     data_err = np.sqrt(np.maximum(counts, 1)) / norm
 
@@ -88,7 +88,7 @@ def t0_scan(inverter, pals: PASLifetime, t0_values: np.ndarray,
         results.append(result)
 
         q = result[0] if isinstance(result[0], np.ndarray) else result[1]
-        time_values = pals.lifetime.energy.values - t0
+        time_values = pals.lifetime.axis - t0
         response = _response_matrix(
             inverter.characteristic_time_grid, time_values, pals.resolution
         )

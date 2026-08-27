@@ -33,7 +33,7 @@ def synthetic_pals():
 
 def test_gp_produces_distribution(synthetic_pals):
     pals, tau_grid, bg = synthetic_pals
-    gp = GPRegression(pals.lifetime.energy.values, tau_grid)
+    gp = GPRegression(pals.lifetime.axis, tau_grid)
     f, meta = gp.invert(pals, bg_est=bg, optimize_hyperparams=False,
                         length_scale=0.5, log_amplitude=5.0)
     assert f.shape == tau_grid.shape
@@ -42,7 +42,7 @@ def test_gp_produces_distribution(synthetic_pals):
 
 def test_gp_returns_metadata(synthetic_pals):
     pals, tau_grid, bg = synthetic_pals
-    gp = GPRegression(pals.lifetime.energy.values, tau_grid)
+    gp = GPRegression(pals.lifetime.axis, tau_grid)
     f, meta = gp.invert(pals, bg_est=bg, optimize_hyperparams=False,
                         length_scale=0.5, log_amplitude=5.0)
     assert 'posterior_std' in meta
@@ -56,7 +56,7 @@ def test_gp_returns_metadata(synthetic_pals):
 
 def test_gp_posterior_std_positive(synthetic_pals):
     pals, tau_grid, bg = synthetic_pals
-    gp = GPRegression(pals.lifetime.energy.values, tau_grid)
+    gp = GPRegression(pals.lifetime.axis, tau_grid)
     f, meta = gp.invert(pals, bg_est=bg, optimize_hyperparams=False,
                         length_scale=0.5, log_amplitude=5.0)
     assert np.all(meta['posterior_std'] >= 0)
@@ -64,7 +64,7 @@ def test_gp_posterior_std_positive(synthetic_pals):
 
 def test_gp_peak_location(synthetic_pals):
     pals, tau_grid, bg = synthetic_pals
-    gp = GPRegression(pals.lifetime.energy.values, tau_grid)
+    gp = GPRegression(pals.lifetime.axis, tau_grid)
     f, _ = gp.invert(pals, bg_est=bg, optimize_hyperparams=False,
                      length_scale=0.5, log_amplitude=5.0)
     peak_tau = tau_grid[np.argmax(f)]
@@ -73,7 +73,7 @@ def test_gp_peak_location(synthetic_pals):
 
 def test_gp_with_hyperparameter_optimization(synthetic_pals):
     pals, tau_grid, bg = synthetic_pals
-    gp = GPRegression(pals.lifetime.energy.values, tau_grid)
+    gp = GPRegression(pals.lifetime.axis, tau_grid)
     f, meta = gp.invert(pals, bg_est=bg, optimize_hyperparams=True)
     assert f.shape == tau_grid.shape
     assert np.all(f > 0)
@@ -83,7 +83,7 @@ def test_gp_with_hyperparameter_optimization(synthetic_pals):
 
 def test_gp_t0_shift(synthetic_pals):
     pals, tau_grid, bg = synthetic_pals
-    gp = GPRegression(pals.lifetime.energy.values, tau_grid)
+    gp = GPRegression(pals.lifetime.axis, tau_grid)
     f0, _ = gp.invert(pals, bg_est=bg, t0_shift=0.0,
                       optimize_hyperparams=False,
                       length_scale=0.5, log_amplitude=5.0)

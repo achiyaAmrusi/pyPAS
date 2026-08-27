@@ -113,14 +113,14 @@ class LifetimeFitter:
         np.ndarray
             Weighted residual, one entry per bin.
         """
-        dt = pals.lifetime.energy.values[1] - pals.lifetime.energy.values[0]
+        dt = pals.lifetime.axis[1] - pals.lifetime.axis[0]
         lt_vals, t0_val, bg_val = pmap.unpack(parms)
         I_vals = solve_intensities(pals=pals,
                                    lifetime_components=lt_vals,
                                    t0=t0_val,
                                    background=bg_val)
         total_counts = pals.lifetime.counts.sum() - bg_val * len(pals.lifetime.counts)
-        predicted_signal = total_counts*dt*_convolved_decay(time=pals.lifetime.energy.values,
+        predicted_signal = total_counts*dt*_convolved_decay(time=pals.lifetime.axis,
                                                          lifetimes=lt_vals,
                                                          intensities=I_vals,
                                                          t0=t0_val,

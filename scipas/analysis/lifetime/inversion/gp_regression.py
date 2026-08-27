@@ -49,7 +49,7 @@ class GPRegression(LifetimeInvert):
     def _build_rm(self, pals, t0_shift):
         """Build column-sum-normalized response matrix (n_time, n_tau)."""
         tau_grid = self.characteristic_time_grid
-        time_values = pals.lifetime.energy.values - t0_shift
+        time_values = pals.lifetime.axis - t0_shift
         response = _response_matrix(tau_grid, time_values, pals.resolution)
 
         col_sums = response.sum(axis=0)

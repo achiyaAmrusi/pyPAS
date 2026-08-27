@@ -162,7 +162,7 @@ def test_fixed_nonzero_t0_shifts_model(two_component_spectrum):
     base = fitter.fit(pals, t0=FitParameter(0.0, fixed=True), **args)
     shifted = fitter.fit(pals, t0=FitParameter(0.10, fixed=True), **args)
 
-    time = pals.lifetime.energy.values
+    time = pals.lifetime.axis
     peak_base = time[np.argmax(base.generate(*base.opt_parameters()).lifetime.counts)]
     peak_shifted = time[np.argmax(shifted.generate(*shifted.opt_parameters()).lifetime.counts)]
     assert peak_shifted - peak_base == pytest.approx(0.10, abs=0.02)

@@ -40,7 +40,7 @@ def _weighted_system(pals: PASLifetime, lifetime_components: np.ndarray, t0: flo
     validated.
     """
     counts = pals.lifetime.counts
-    time = pals.lifetime.energy.values
+    time = pals.lifetime.axis
     dt = time[1] - time[0]
 
     total = counts.sum() - background * len(counts)

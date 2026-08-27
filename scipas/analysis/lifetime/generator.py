@@ -1,6 +1,7 @@
 import numpy as np
 from scipas.model.lifetime import LifetimeModel
 from scipas.core.lifetime import TimeResolution, PASLifetime
+from scipas.core.time_resolution import TIME_AXIS_NAME
 from scispectrum import Spectrum
 from scispectrum.calibration.axis import AxisCalibration
 
@@ -8,7 +9,7 @@ from scispectrum.calibration.axis import AxisCalibration
 def _time_axis_calibration(time: np.ndarray) -> AxisCalibration:
     dt = time[1] - time[0]
     t0 = time[0]
-    return AxisCalibration(lambda ch, _dt=dt, _t0=t0: ch * _dt + _t0, name="energy")
+    return AxisCalibration(lambda ch, _dt=dt, _t0=t0: ch * _dt + _t0, name=TIME_AXIS_NAME)
 
 
 def _convolved_decay(

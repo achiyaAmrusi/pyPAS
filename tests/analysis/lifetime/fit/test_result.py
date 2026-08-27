@@ -51,7 +51,7 @@ def test_generate_matches_measured_grid(fitted):
     model = result.generate(*result.opt_parameters())
     assert isinstance(model, PASLifetime)
     assert model.lifetime.counts.shape == pals.lifetime.counts.shape
-    assert np.allclose(model.lifetime.energy.values, pals.lifetime.energy.values)
+    assert np.allclose(model.lifetime.axis, pals.lifetime.axis)
     assert reduced_chi_squared(pals, result) < 2.0
 
 

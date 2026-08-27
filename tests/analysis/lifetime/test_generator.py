@@ -78,7 +78,7 @@ def test_random_is_poisson(setup):
 def test_analytical_time_axis_matches(setup):
     time, irf, model = setup
     result = generate_analytical_lt_spectrum(time, model, irf)
-    energy_vals = result.lifetime.energy.values
+    energy_vals = result.lifetime.axis
     assert np.allclose(time, energy_vals)
 
 
