@@ -1,11 +1,12 @@
 """Monte Carlo check that the reported covariance has the right scale.
-draw independent spectra from one truth, fit each, and compare the spread
+Draw independent spectra from one truth, fit each, and compare the spread
 of the fits against the "pcov" the fits themselves report.
-Both checks center on the **ensemble mean**, not on the truth. The fitted
-background carries a known bias of about one count from the Neyman weighting
-(see the weighting decision in CLAUDE.md), which is a property of the estimator
-rather than of its covariance. Centring on the mean removes it, so what is
-under test here is the covariance alone.
+Both checks center on the **ensemble mean**, not on the truth, because the
+fitted background carries a known bias of about one count from the Neyman
+weighting (see the weighting decision in CLAUDE.md).
+The background is large - 100 counts/bin - for a separate reason: the same
+weighting makes the reported sigma(bg) about 13% optimistic at ~20 counts/bin,
+an O(1/counts) effect that is gone by 60.
 """
 import numpy as np
 import pytest
@@ -18,7 +19,7 @@ from scipas.analysis.lifetime.fit import LifetimeFitter, FitParameter
 
 from conftest import narrow_irf, NOISELESS_GRID
 
-N_FITS = 100
+N_FITS = 400
 TRUE_TAU = 0.25
 TRUE_BACKGROUND = 100.0
 NUM_EVENTS = 1_000_000
@@ -26,12 +27,7 @@ NUM_EVENTS = 1_000_000
 
 def _fit_one(seed):
     """Fit one Poisson realization of the single-component truth.
-
-    The background is *drawn*, not added as a constant. Adding it flat leaves
-    the tail bins with no scatter at all, and the background is determined
-    almost entirely by the tail - its fitted spread then collapses while pcov
-    keeps predicting what Poisson bins would give, and the comparison fails
-    against correct code.
+    The background is *drawn*, not added as a constant.
     """
     rng = np.random.default_rng(seed)
     model = LifetimeModel("one", lifetimes=[TRUE_TAU], intensities=[1.0])
@@ -67,53 +63,30 @@ def ensemble():
     return popt, pcov
 
 
-def test_predicted_sigma_matches_the_scatter(ensemble):
-    """Reported sigma must match the spread of the fits, parameter by parameter.
+def test_pcov_matches_the_ensemble_covariance(ensemble):
+    """The reported pcov must match the covariance of the fits themselves.
 
-    Asserted on the ratio, so the bound is symmetric. "approx(predicted,
-    rel=...)" is not: an inflated prediction widens its own tolerance, and a
-    pcov twice too large slipped through that way while the Mahalanobis check
-    below caught it.
+    Two assertions rather than one comparison of the matrices, because the
+    elements are known to very different relative precision: the diagonal to a
+    few percent, the off-diagonal to about 50%, since the correlation is small
+    and its sampling error is large beside it.
 
-    Tolerance from the Monte Carlo error on a standard deviation,
-    1/sqrt(2(n-1)) = 7.1% at n=100, so 0.20 is a little under three of those.
-    Asserted on the ratio, so the bound is symmetric. "approx(predicted,
-    rel=...)" is not: an inflated prediction widens its own tolerance, and a
-    pcov twice too large slips through that way.
-
-    0.15 is about two Monte Carlo errors (7.1% at n=100) and twice the observed
-    deviation - the ratios are 0.977 and 0.933.
-
-    Sensitivity is asymmetric, because those ratios sit just below 1: an
-    overstated sigma pushes them further down and is caught from about 1.1x,
-    while an understated one pushes them back toward 1 and is masked until
-    roughly 1.25x. The Mahalanobis check below is the guard on that side.
+    The diagonal bound is the Monte Carlo error on a *standard deviation*,
+    1/sqrt(2(n-1)): Var(s^2) = 2 sigma^4/(n-1), and the square root halves that
+    relative error. The off-diagonal bound is the error on a correlation,
+    (1 - rho^2)/sqrt(n), which for a small rho is 1/sqrt(n). Both are doubled
+    and both are computed from N_FITS, so they follow if it changes.
     """
     popt, pcov = ensemble
-    observed = popt.std(axis=0, ddof=1)
-    predicted = np.sqrt(np.diagonal(pcov, axis1=1, axis2=2)).mean(axis=0)
+    predicted = pcov.mean(axis=0)
+    predicted_sigma = np.sqrt(np.diag(predicted))
 
-    assert observed / predicted == pytest.approx(1.0, abs=0.15)
+    # the diagonal, as a ratio: abs rather than relative so the bound does not
+    # scale with the prediction, which would let an inflated pcov widen it
+    assert popt.std(axis=0, ddof=1) / predicted_sigma == pytest.approx(
+        1.0, abs=2 / np.sqrt(2 * (N_FITS - 1)))
 
-
-def test_mahalanobis_matches_the_free_parameter_count(ensemble):
-    """The whole matrix at once, correlations included.
-
-    "d^2 = (theta - mean)^T pcov^-1 (theta - mean)" is chi-squared distributed
-    with "n_free" degrees of freedom, so its mean over the ensemble must be
-    "n_free" - here 2, for tau and background. A per-parameter comparison would
-    miss a covariance with the right diagonal and wrong off-diagonal; this does
-    not.
-
-    The mean of n draws of chi2_k has standard error sqrt(2k/n) = 0.20 at k=2,
-    n=100, and the bound is three of those. The observed mean is 1.79. Kept at
-    three rather than two because chi-squared is skewed and this statistic is
-    the backstop, not the sensitive one.
-    """
-    popt, pcov = ensemble
-    n_free = popt.shape[1]
-    deviation = popt - popt.mean(axis=0)
-
-    d2 = np.array([d @ np.linalg.inv(c) @ d for d, c in zip(deviation, pcov)])
-
-    assert d2.mean() == pytest.approx(n_free, abs=3 * np.sqrt(2 * n_free / N_FITS))
+    # the off-diagonal, which the ratio above cannot see
+    assert np.corrcoef(popt.T) == pytest.approx(
+        predicted / np.outer(predicted_sigma, predicted_sigma),
+        abs=2 / np.sqrt(N_FITS))
