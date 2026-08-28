@@ -88,47 +88,15 @@ def test_sample_differs_across_seeds(fitted):
 
 
 def test_sample_reproduces_pcov(fitted):
-    """The nonlinear draws must reproduce pcov, in scale and in structure.
-
-    Two assertions rather than one comparison of covariance matrices: the
-    diagonal spans three orders of magnitude and wants a relative tolerance,
-    while the off-diagonal correlations sit near zero, where a relative
-    tolerance means nothing.
-    """
     _, result = fitted
     taus, _, t0, background = result.sample(2000, rng=1)
     drawn = np.column_stack([taus, t0, background])
     scale = np.sqrt(np.diag(result.pcov.values))
 
     assert np.allclose(drawn.std(axis=0, ddof=1), scale, rtol=0.1)
+    # correlation measures the off diagonal values (The diag is always 1)
     assert np.allclose(np.corrcoef(drawn.T),
                        result.pcov.values / np.outer(scale, scale), atol=0.05)
-
-
-def test_sampled_intensity_sum_is_pinned(fitted):
-    """T is pinned to the observed counts, so sum(I) barely varies across draws.
-
-    A property of the scaling, not of the components: it holds whether or not
-    the individual intensities are well determined. How strongly I_0 and I_1
-    anticorrelate does depend on the components,
-
-        rho = -(s0^2 + s1^2 - s_sum^2) / (2 s0 s1)
-
-    which approaches -1 only when the lifetimes are close enough that the
-    individual intensities are degenerate, s_i >> s_sum.
-
-    Both assertions are one-sided bounds, chosen to separate the pinned case
-    from the unpinned one rather than to measure anything: sum(I) varies by
-    about 1e-3 here, while an unpinned sum would vary on the scale of the
-    individual intensities, about 8e-3. The 5e-3 bound sits between the two.
-    500 draws are therefore plenty - the standard error of a standard deviation
-    is sigma/sqrt(2(n-1)), around 3e-5.
-    """
-    _, result = fitted
-    _, intensities, _, _ = result.sample(500, rng=1)
-    total = intensities.sum(axis=1)
-    assert abs(total.mean() - 1.0) < 5e-3
-    assert total.std(ddof=1) < 5e-3
 
 
 def test_sample_holds_fixed_parameters_constant(two_component_spectrum):

@@ -152,3 +152,33 @@ def test_covariance_is_slot_sized_and_zero_on_fixed(two_component_spectrum):
         assert np.all(result.pcov.values[slot] == 0.0)
         assert np.all(result.pcov.values[:, slot] == 0.0)
     assert np.all(np.diag(result.pcov.values)[[1, 3]] > 0.0)
+
+
+@pytest.mark.parametrize("rejected", ["fun", "x0", "bounds", "args", "loss",
+                                      "f_scale", "diff_step", "jac_sparsity",
+                                      "workers", "not_an_option"])
+def test_unsupported_least_squares_kwargs_are_rejected(two_component_spectrum, rejected):
+    """Only options that cannot change the meaning of the Jacobian get through.
+
+    An allowlist, because the dangerous ones fail silently: "loss", "f_scale",
+    "diff_step" and "jac_sparsity" each produce a plausible fit and a wrong
+    pcov with no error at all, since estimate_cov reads the covariance off
+    whatever Jacobian it is handed. A blocklist would have to anticipate every
+    such option, including ones scipy adds later.
+    """
+    pals, _, bg = two_component_spectrum
+    with pytest.raises(ValueError, match="cannot be forwarded"):
+        LifetimeFitter().fit(pals, lifetime_components=components(0.15, 1.2),
+                             background=FitParameter(bg, lower=0.0),
+                             **{rejected: "anything"})
+
+
+def test_least_squares_kwargs_reach_the_optimizer(two_component_spectrum):
+    """A forwarded option must actually take effect; max_nfev overrides the default."""
+    pals, _, bg = two_component_spectrum
+    result = LifetimeFitter().fit(pals, lifetime_components=components(0.15, 1.2),
+                                  t0=FitParameter(0.0, fixed=True),
+                                  background=FitParameter(bg, lower=0.0),
+                                  max_nfev=3)
+    assert not result.optimizer.success
+    assert result.optimizer.nfev == 3

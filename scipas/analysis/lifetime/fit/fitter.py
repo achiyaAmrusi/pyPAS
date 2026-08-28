@@ -10,6 +10,23 @@ from scipas.analysis.lifetime.fit.parameters import FitParameter, ParameterMap
 from warnings import warn
 from typing import Literal
 
+#: least_squares options "fit" forwards. An allowlist rather than a blocklist:
+#: every name here can only change how the optimizer reaches the minimum, never
+#: what the Jacobian at the minimum means, so "estimate_cov" stays valid.
+#: Excluded on purpose, because each silently corrupts the covariance --
+#: "loss" and "f_scale" minimise something other than a sum of squares,
+#: "diff_step" sets the finite-difference step, "jac_sparsity" declares Jacobian
+#: entries structurally zero so they are never computed. All three yield a
+#: plausible fit and a wrong pcov with no error. Also excluded: "fun", "x0",
+#: "bounds" and "args", which "fit" sets itself; "kwargs", which would collide
+#: with the args tuple "residuals" expects; and "workers", which needs the
+#: residual to pickle and is untested here. "method" is an explicit parameter of
+#: "fit", so it binds there and never reaches these keywords.
+_FORWARDED_LEAST_SQUARES_ARGS = frozenset(
+    {"jac", "ftol", "xtol", "gtol", "x_scale", "max_nfev", "verbose",
+     "tr_solver", "tr_options"})
+
+
 class LifetimeFitter:
     """
     Discrete multi-exponential lifetime spectrum fitter.
@@ -177,6 +194,7 @@ class LifetimeFitter:
             t0: FitParameter | None = None,
             background: FitParameter | None = None,
             method: Literal["trf", "dogbox"] = "trf",
+            **least_squares_kwargs,
             ) -> FitResult:
         """
         Fit a discrete multi-exponential model to a lifetime spectrum.
@@ -196,6 +214,14 @@ class LifetimeFitter:
         method : str
             Optimization method for least_squares. Default "trf" (Trust Region
             Reflective, supports bounds).
+        **least_squares_kwargs
+            Additional options forwarded to "scipy.optimize.least_squares",
+            Arguments this method sets itself are rejected -
+             "fun", "x0", "bounds", "args", "method"  and "loss".
+            quantity something else than a sum of squares, and "estimate_cov"
+            reads the covariance off the Gauss-Newton Hessian of one.
+            Note "jac=\"cs\"" does not work, since the intensity solve is not
+            defined for complex input.
 
         Returns
         -------
@@ -210,7 +236,8 @@ class LifetimeFitter:
         ------
         ValueError
             If "lifetime_components" is empty, if every parameter is fixed so
-            there is nothing to optimize, or if any initial value lies outside
+            there is nothing to optimize, if an unsupported option is passed in
+            "least_squares_kwargs", or if any initial value lies outside
             its own bounds. The last case includes a lifetime below the 1 ps
             floor, since the bounds are clamped to that floor before the value
             is checked against them.
@@ -229,13 +256,24 @@ class LifetimeFitter:
         if pmap.n_free == 0:
             raise ValueError("No free parameters - nothing to fit")
 
+        rejected = set(least_squares_kwargs) - _FORWARDED_LEAST_SQUARES_ARGS
+        if rejected:
+            raise ValueError(
+                f"{sorted(rejected)} cannot be forwarded to least_squares. "
+                f"Allowed: {sorted(_FORWARDED_LEAST_SQUARES_ARGS)}. The rest are "
+                f"either set by fit itself or would leave estimate_cov reading a "
+                f"covariance off a Jacobian that no longer means what it assumes."
+            )
+
+        options = {"max_nfev": 10000} | least_squares_kwargs
+
         # noinspection PyTypeChecker
         result = least_squares(self.residuals,
                                pmap.initial_vector(),
                                bounds=(pmap.bounds_lower, pmap.bounds_upper),
                                args=(pmap, pals, sigma),
                                method=method,
-                               max_nfev=10000)
+                               **options)
 
         cov = self.estimate_cov(lsq_result=result, pmap=pmap)
 
