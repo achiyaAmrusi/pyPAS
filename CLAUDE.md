@@ -26,6 +26,8 @@ pip install -e "/home/owner/gitProjects/scipas[dev]"
 
 The companion spectrum library **SciSpectrum** (`scispectrum>=0.3` on PyPI) is listed in `pyproject.toml` dependencies and installed automatically.
 
+**That pin is currently too loose.** The lifetime fitter relies on `Spectrum` never storing a zero `counts_err` (see the invariants below), which landed in scispectrum `c3e5b5e` — after the released 0.3.2 and not yet on PyPI. Against 0.3.2 a spectrum whose errors contain a zero still fails inside `nnls` with "array must not contain infs or NaNs". Bump and release scispectrum, then raise the pin.
+
 ---
 
 ## Running Tests
@@ -141,6 +143,7 @@ Key SciSpectrum invariants:
 - `Domain` uses lazy background subtraction — background is stored and applied only when `.data` is accessed.
 - All `Spectrum` / `Domain` arithmetic propagates uncertainties via the `uncertainties` library.
 - `SNRFinder` requires `ResolutionCalibration` attached to the `Spectrum` before calling.
+- `Spectrum` never stores a zero `counts_err`: zeros are replaced by 1 with a warning on construction, and `TimeChannelParser` floors its own error column so the common path does not trip that warning. The substitute is 1 rather than anything derived from `counts`, since `counts` may be in any unit the caller chose. **scipas depends on this** — the lifetime fitter and `solve_intensities` both divide by the errors, and `analysis/vedb` propagates them into S and W.
 
 ---
 
