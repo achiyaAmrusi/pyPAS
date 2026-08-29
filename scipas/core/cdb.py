@@ -190,7 +190,7 @@ class CDB:
         doppler_broadening = self.coincidence_map.sum("resolution")
         doppler_broadening_spectrum = Spectrum(
             counts=doppler_broadening.values,
-            counts_err=np.sqrt(doppler_broadening.values),
+            counts_err=np.maximum(np.sqrt(doppler_broadening.values), 1.0),
             axis_calib=AxisCalibration.from_array(doppler_broadening.coords["doppler"].values))
 
         return DB.from_domain(
@@ -213,7 +213,7 @@ class CDB:
         """
         resolution = self.coincidence_map.sum("doppler")
         resolution_spectrum = Spectrum(counts=resolution.values,
-                                       counts_err=np.sqrt(resolution.values),
+                                       counts_err=np.maximum(np.sqrt(resolution.values), 1.0),
                                        axis_calib=AxisCalibration.from_array(resolution.coords["resolution"].values))
 
         return resolution_spectrum.domain(start_val=resolution_spectrum.axis[0], stop_val=resolution_spectrum.axis[-1])

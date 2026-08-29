@@ -250,7 +250,7 @@ class LifetimeFitter:
         if background is None:
             background = FitParameter(0.0, lower=0.0)
 
-        sigma = np.sqrt(np.maximum(pals.lifetime.counts, 1.0))
+        sigma = (np.sqrt(np.maximum(pals.lifetime.counts, 1.0)) if pals.lifetime.counts_err is None else pals.lifetime.counts_err)
         pmap = ParameterMap(lifetime_components, t0, background)
 
         if pmap.n_free == 0:

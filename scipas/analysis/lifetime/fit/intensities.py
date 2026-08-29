@@ -44,7 +44,8 @@ def _weighted_system(pals: PASLifetime, lifetime_components: np.ndarray, t0: flo
     dt = time[1] - time[0]
 
     total = counts.sum() - background * len(counts)
-    weight = 1.0 / np.sqrt(np.maximum(counts, 1.0))
+    sigma = (np.sqrt(np.maximum(pals.lifetime.counts, 1.0)) if pals.lifetime.counts_err is None else pals.lifetime.counts_err)
+    weight = 1.0 / sigma
 
     design = (dt * total) * _components_response_basis(time, lifetime_components, pals.resolution, t0)
     return design * weight[:, None], (counts - background) * weight
